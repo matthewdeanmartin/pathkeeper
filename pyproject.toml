@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pathkeeper"
+version = "0.1.0"
+description = "PATH backup, restore, and repair tool"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+pathkeeper = "pathkeeper.cli:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.18.2",
+  "pytest>=8.4.2",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["pathkeeper", "tests"]
+
+[tool.uv]
+default-groups = ["dev"]
+

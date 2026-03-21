@@ -1,0 +1,50 @@
+site_name: "pathkeeper"
+site_url: "https://pathkeeper.readthedocs.io/"
+site_author: "Matthew Dean Martin <matthewdeanmartin@gmail.com>"
+site_description: "<tbd>"
+
+repo_url: "https://github.com/matthewdeanmartin/pathkeeper"
+
+theme:
+  name: readthedocs
+  features:
+    - navigation.footer
+
+edit_uri: edit/main/docs/
+
+markdown_extensions:
+  - attr_list
+  - codehilite
+  - toc:
+      permalink: true
+
+nav:
+  - "Overview":
+      - "Readme.md": "overview/README.md"
+      - "Who is this for?": "overview/who_is_this_for.md"
+  - "Installation": "installation.md"
+  - "Usage":
+      - "Quick Start": "usage/usage.md"
+      - "Commands": "usage/commands.md"
+      - "Configuration": "usage/config.md"
+      - "Workflows": "usage/workflows.md"
+  - "Extending":
+    - "Extension points": "extending/extending.md"
+    - "API": "extending/API.md"
+    - "Contributing": "extending/CONTRIBUTING.md"
+  - "Prior Art":
+      - "Prior art": "PRIOR_ART.md"
+  - "Change Log": "CHANGELOG.md"
+
+validation:
+  nav:
+    omitted_files: warn
+  omitted_files: warn
+  absolute_links: warn  # Or 'relative_to_docs' - new in MkDocs 1.6
+  unrecognized_links: warn
+  anchors: warn  # New in MkDocs 1.6
+
+plugins:
+  - search
+  - mkdocstrings
+  - print-site

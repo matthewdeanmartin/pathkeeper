@@ -1,0 +1,245 @@
+[[tools]]
+name = "Python"
+category = "Programming Languages"
+os = "windows"
+patterns = [
+  "C:\\Python3*",
+  "C:\\Python3*\\Scripts",
+  "%LOCALAPPDATA%\\Programs\\Python\\Python3*",
+  "%LOCALAPPDATA%\\Programs\\Python\\Python3*\\Scripts",
+]
+
+[[tools]]
+name = "Node.js"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\nodejs",
+  "/usr/local/bin",
+  "$HOME/.nvm/versions/node/*/bin",
+]
+
+[[tools]]
+name = "Go"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "C:\\Program Files\\Go\\bin",
+  "C:\\Go\\bin",
+  "/usr/local/go/bin",
+  "$HOME/go/bin",
+]
+
+[[tools]]
+name = "Rust"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "%USERPROFILE%\\.cargo\\bin",
+  "$HOME/.cargo/bin",
+]
+
+[[tools]]
+name = "Ruby"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "C:\\Ruby*\\bin",
+  "/opt/rubies/*/bin",
+  "$HOME/.rbenv/shims",
+]
+
+[[tools]]
+name = "Java"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\Java\\*\\bin",
+  "/Library/Java/JavaVirtualMachines/*/Contents/Home/bin",
+  "/usr/lib/jvm/*/bin",
+]
+
+[[tools]]
+name = ".NET"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\dotnet",
+  "/usr/local/share/dotnet",
+  "/usr/share/dotnet",
+]
+
+[[tools]]
+name = "PHP"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "C:\\php",
+  "/opt/homebrew/bin",
+  "/usr/bin",
+]
+
+[[tools]]
+name = "Dart"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "%LOCALAPPDATA%\\Pub\\Cache\\bin",
+  "$HOME/.pub-cache/bin",
+]
+
+[[tools]]
+name = "Deno"
+category = "Programming Languages"
+os = "all"
+patterns = [
+  "%USERPROFILE%\\.deno\\bin",
+  "$HOME/.deno/bin",
+]
+
+[[tools]]
+name = "Git"
+category = "Developer Tools"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\Git\\cmd",
+  "%ProgramFiles%\\Git\\bin",
+  "/usr/local/bin",
+  "/usr/bin",
+]
+
+[[tools]]
+name = "Docker"
+category = "Developer Tools"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\Docker\\Docker\\resources\\bin",
+  "/Applications/Docker.app/Contents/Resources/bin",
+  "/usr/local/bin",
+]
+
+[[tools]]
+name = "kubectl"
+category = "Developer Tools"
+os = "all"
+patterns = [
+  "%USERPROFILE%\\bin",
+  "$HOME/bin",
+  "/usr/local/bin",
+]
+
+[[tools]]
+name = "Terraform"
+category = "Developer Tools"
+os = "all"
+patterns = [
+  "%USERPROFILE%\\bin",
+  "$HOME/bin",
+  "/usr/local/bin",
+]
+
+[[tools]]
+name = "VS Code"
+category = "Developer Tools"
+os = "all"
+patterns = [
+  "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\bin",
+  "/Applications/Visual Studio Code.app/Contents/Resources/app/bin",
+  "/usr/share/code/bin",
+]
+
+[[tools]]
+name = "PostgreSQL"
+category = "Databases"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\PostgreSQL\\*\\bin",
+  "/Library/PostgreSQL/*/bin",
+  "/usr/lib/postgresql/*/bin",
+]
+
+[[tools]]
+name = "MySQL"
+category = "Databases"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\MySQL\\MySQL Server *\\bin",
+  "/usr/local/mysql/bin",
+  "/usr/bin",
+]
+
+[[tools]]
+name = "MongoDB"
+category = "Databases"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\MongoDB\\Server\\*\\bin",
+  "/usr/local/bin",
+  "/opt/homebrew/bin",
+]
+
+[[tools]]
+name = "SQLite"
+category = "Databases"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\SQLite",
+  "/usr/bin",
+  "/opt/homebrew/bin",
+]
+
+[[tools]]
+name = "Homebrew"
+category = "Package Managers"
+os = "darwin"
+patterns = [
+  "/opt/homebrew/bin",
+  "/opt/homebrew/sbin",
+  "/usr/local/bin",
+]
+
+[[tools]]
+name = "Snap"
+category = "Package Managers"
+os = "linux"
+patterns = [
+  "/snap/bin",
+]
+
+[[tools]]
+name = "Flatpak"
+category = "Package Managers"
+os = "linux"
+patterns = [
+  "/var/lib/flatpak/exports/bin",
+  "$HOME/.local/share/flatpak/exports/bin",
+]
+
+[[tools]]
+name = "Composer"
+category = "Package Managers"
+os = "all"
+patterns = [
+  "%APPDATA%\\Composer\\vendor\\bin",
+  "$HOME/.config/composer/vendor/bin",
+]
+
+[[tools]]
+name = "Maven"
+category = "Build Tools"
+os = "all"
+patterns = [
+  "%ProgramFiles%\\Apache\\maven\\bin",
+  "/opt/homebrew/bin",
+  "/usr/share/maven/bin",
+]
+
+[[tools]]
+name = "Gradle"
+category = "Build Tools"
+os = "all"
+patterns = [
+  "%USERPROFILE%\\.gradle\\bin",
+  "$HOME/.gradle/bin",
+]
+
