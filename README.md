@@ -55,6 +55,7 @@ uv run pathkeeper inspect
 uv run pathkeeper doctor
 uv run pathkeeper backup --note "before installing toolchain"
 uv run pathkeeper backup --force
+uv run pathkeeper backup --dry-run
 uv run pathkeeper backups list
 uv run pathkeeper backups show
 uv run pathkeeper backups show 2
@@ -62,7 +63,9 @@ uv run pathkeeper restore 2025-03-05T14-30-00 --dry-run
 uv run pathkeeper dedupe --dry-run
 uv run pathkeeper repair-truncated --scope user
 uv run pathkeeper populate --dry-run
+uv run pathkeeper edit --add "/usr/local/newbin" --dry-run
 uv run pathkeeper edit --add "/usr/local/newbin" --force
+uv run pathkeeper schedule install --dry-run
 uv run pathkeeper schedule status
 ```
 
@@ -102,5 +105,6 @@ uv run mypy pathkeeper tests
 - Starting the interactive menu now shows the backup location plus a one-line inspect summary.
 - If you cancel an interactive operation, pathkeeper returns to the menu instead of exiting.
 - `repair-truncated` can propose repairs from backup history or disk matches and lets you choose among multiple candidates before writing.
+- `backup`, `restore`, `dedupe`, `populate`, `repair-truncated`, `edit`, and scheduler writes all support dry-run preview flows.
 - On Unix, `pathkeeper` only rewrites PATH content inside its managed marker block in user rc files.
 - On Windows, registry writes use `REG_EXPAND_SZ` and broadcast an environment change notification.

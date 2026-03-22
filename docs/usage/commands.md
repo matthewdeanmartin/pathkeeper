@@ -53,12 +53,14 @@ uv run pathkeeper doctor [--scope {system,user,all}] [--json] [--only-invalid] [
 Create a backup of the current PATH state.
 
 ```bash
-uv run pathkeeper backup [--note "text"] [--tag {manual,auto}] [--quiet] [--force]
+uv run pathkeeper backup [--note "text"] [--tag {manual,auto}] [--quiet] [--force] [--dry-run]
 ```
 
 Backups are stored as JSON in `~/.pathkeeper/backups/`.
 
 By default, `backup` skips creating a new file when the latest saved backup has identical PATH content. Use `--force` to override that behavior.
+
+Use `--dry-run` to preview whether a backup would be created or skipped.
 
 ## `pathkeeper backups`
 
@@ -111,7 +113,7 @@ Current behavior:
 Launch the staged PATH editor. In the interactive menu, choosing `Edit` now opens the editor workflow directly instead of just printing the current entries.
 
 ```bash
-uv run pathkeeper edit [--scope {system,user}] [--add PATH] [--remove PATH] [--move PATH --position N] [--edit OLD --new-path NEW] [--force]
+uv run pathkeeper edit [--scope {system,user}] [--add PATH] [--remove PATH] [--move PATH --position N] [--edit OLD --new-path NEW] [--force] [--dry-run]
 ```
 
 Examples:
@@ -124,6 +126,8 @@ uv run pathkeeper edit --edit "/bad/path" --new-path "/good/path" --force
 ```
 
 Within the editor you can add, delete, move, replace, preview, undo, reset, write, or quit staged changes.
+
+For direct invocation, `--dry-run` prints the staged diff without writing changes.
 
 ## `pathkeeper repair-truncated`
 
@@ -149,8 +153,8 @@ Manage scheduled automatic backups.
 
 ```bash
 uv run pathkeeper schedule status
-uv run pathkeeper schedule install [--interval startup|60m] [--trigger startup|logon]
-uv run pathkeeper schedule remove
+uv run pathkeeper schedule install [--interval startup|60m] [--trigger startup|logon] [--dry-run]
+uv run pathkeeper schedule remove [--dry-run]
 ```
 
 When scheduling is not configured, `schedule status` now reports that it is disabled without exposing low-level missing-file errors.
@@ -162,6 +166,8 @@ On Windows, if creating a startup task is denied because the shell is not elevat
 If Windows also denies creation of the per-user logon task, the interactive flow now reports that clearly and tells you to retry from an elevated shell or check whether Task Scheduler is blocked by policy.
 
 In the interactive menu, choosing `Dedupe` on Windows now offers to retry against the user PATH only when system-scope cleanup needs elevation but user-scope cleanup is still possible.
+
+For scheduler writes, `--dry-run` shows what would be installed or removed without touching Task Scheduler, launchd, or systemd files.
 
 Platform behavior:
 

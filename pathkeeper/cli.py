@@ -13,7 +13,7 @@ from pytable_formatter import Table  # type: ignore[import-untyped]
 
 from pathkeeper import __version__
 from pathkeeper.config import backups_home, load_config
-from pathkeeper.core.backup import backup_content_hash, create_backup, list_backups, prune_backups, resolve_backup
+from pathkeeper.core.backup import backup_content_hash, backup_filename, create_backup, list_backups, prune_backups, resolve_backup
 from pathkeeper.core.dedupe import dedupe_entries
 from pathkeeper.core.diagnostics import analyze_snapshot, doctor_recommendations, join_path
 from pathkeeper.core.diff import compute_diff, render_diff
@@ -64,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     backup_parser.add_argument("--tag", default="manual", choices=["manual", "auto"], help="Backup tag.")
     backup_parser.add_argument("--quiet", action="store_true", help="Suppress confirmation output.")
     backup_parser.add_argument("--force", action="store_true", help="Create a backup even if content is unchanged.")
+    backup_parser.add_argument("--dry-run", action="store_true", help="Preview backup behavior without writing.")
 
     backups_parser = subparsers.add_parser("backups", help="List or inspect saved backups.")
     backups_subparsers = backups_parser.add_subparsers(dest="backups_command", required=True)
@@ -112,13 +113,16 @@ def build_parser() -> argparse.ArgumentParser:
     edit_parser.add_argument("--edit", dest="replace_value", default=None)
     edit_parser.add_argument("--new-path", default=None)
     edit_parser.add_argument("--force", action="store_true")
+    edit_parser.add_argument("--dry-run", action="store_true")
 
     schedule_parser = subparsers.add_parser("schedule", help="Install or inspect scheduled backups.")
     schedule_subparsers = schedule_parser.add_subparsers(dest="schedule_command", required=True)
     install_parser = schedule_subparsers.add_parser("install", help="Install scheduled backups.")
     install_parser.add_argument("--interval", default="startup", help="startup or minute interval like 60m.")
     install_parser.add_argument("--trigger", default="startup", choices=["startup", "logon"])
-    schedule_subparsers.add_parser("remove", help="Remove scheduled backups.")
+    install_parser.add_argument("--dry-run", action="store_true")
+    remove_parser = schedule_subparsers.add_parser("remove", help="Remove scheduled backups.")
+    remove_parser.add_argument("--dry-run", action="store_true")
     schedule_subparsers.add_parser("status", help="Inspect schedule status.")
 
     return parser
@@ -236,6 +240,19 @@ def _backup_now(*, tag: str, note: str, quiet: bool, force: bool = False) -> int
 
 
 def _backup_command(args: argparse.Namespace) -> int:
+    if args.dry_run:
+        config = load_config()
+        adapter = get_platform_adapter(config)
+        snapshot = read_snapshot(adapter)
+        records = list_backups(backups_home())
+        if not args.force and records and records[0].snapshot == snapshot and records[0].os_name == normalized_os_name():
+            print("Dry run: backup would be skipped because the current PATH matches the latest saved backup.")
+            return 0
+        preview_name = backup_filename(datetime.now(UTC), args.tag)
+        print(f"Dry run: would create backup at {backups_home() / preview_name}")
+        if args.note:
+            print(f"Note: {args.note}")
+        return 0
     return _backup_now(tag=args.tag, note=args.note, quiet=args.quiet, force=args.force)
 
 
@@ -705,6 +722,7 @@ def _write_edit_session(
     *,
     adapter: PathWriter,
     args_force: bool,
+    dry_run: bool,
     os_name: str,
     scope: Scope,
     session: EditSession,
@@ -714,6 +732,9 @@ def _write_edit_session(
     print(render_diff(diff))
     if diff.added == [] and diff.removed == [] and diff.reordered == []:
         print("No staged changes to write.")
+        return 0
+    if dry_run:
+        print("Dry run: edit changes were not written.")
         return 0
     updated = _snapshot_with_scope(snapshot, scope, session.entries, os_name)
     _preflight_write(snapshot, updated, scope, adapter)
@@ -793,6 +814,7 @@ def _interactive_edit(args: argparse.Namespace) -> int:
                 return _write_edit_session(
                     adapter=adapter,
                     args_force=False,
+                    dry_run=False,
                     os_name=os_name,
                     scope=scope,
                     session=session,
@@ -831,6 +853,7 @@ def _edit(args: argparse.Namespace) -> int:
     return _write_edit_session(
         adapter=adapter,
         args_force=args.force,
+        dry_run=args.dry_run,
         os_name=os_name,
         scope=scope,
         session=session,
@@ -851,8 +874,17 @@ def _schedule(args: argparse.Namespace) -> int:
         return 0
     if args.schedule_command == "install":
         trigger = getattr(args, "trigger", "startup")
+        if getattr(args, "dry_run", False):
+            print(
+                "Dry run: would install scheduled backups "
+                f"for os={os_name} interval={args.interval} trigger={trigger}."
+            )
+            return 0
         logger.info("Installing schedule with interval=%s trigger=%s", args.interval, trigger)
         print(install_schedule(os_name, args.interval, trigger=trigger))
+        return 0
+    if getattr(args, "dry_run", False):
+        print(f"Dry run: would remove scheduled backups for os={os_name}.")
         return 0
     logger.info("Removing schedule.")
     print(remove_schedule(os_name))

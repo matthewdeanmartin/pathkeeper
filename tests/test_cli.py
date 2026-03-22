@@ -111,6 +111,21 @@ def test_backup_command_logs_info_when_requested(
     assert "INFO: Running backup with tag=manual" in error_output
 
 
+def test_backup_dry_run_reports_planned_backup(
+    monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
+    monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
+    monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
+    exit_code = cli.run(["backup", "--dry-run"])
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Dry run: would create backup at" in output
+    assert len(list(tmp_path.glob("*.json"))) == 0
+
+
 def test_backup_command_skips_duplicate_content_without_force(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
@@ -125,6 +140,22 @@ def test_backup_command_skips_duplicate_content_without_force(
     error_output = capsys.readouterr().err
     assert exit_code == 0
     assert "WARNING: Skipping backup because the current PATH matches the latest saved backup." in error_output
+
+
+def test_backup_dry_run_reports_duplicate_skip(
+    monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
+    monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
+    monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
+    assert cli.run(["backup"]) == 0
+    capsys.readouterr()
+    exit_code = cli.run(["backup", "--dry-run"])
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Dry run: backup would be skipped" in output
 
 
 def test_dedupe_all_skips_unchanged_system_scope(
@@ -277,6 +308,21 @@ def test_interactive_edit_session_can_stage_and_write_changes(
     assert adapter.read_user_path() == ["/home/test/bin", "/opt/tools/bin"]
 
 
+def test_edit_dry_run_shows_diff_without_writing(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
+    monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
+    exit_code = cli.run(["edit", "--add", "/opt/tools/bin", "--dry-run"])
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Added:" in output
+    assert "Dry run: edit changes were not written." in output
+    assert adapter.read_user_path() == ["/home/test/bin"]
+
+
 def test_interactive_cancel_returns_to_menu(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
@@ -368,6 +414,22 @@ def test_schedule_status_hides_low_level_disabled_detail(monkeypatch: MonkeyPatc
     assert "Schedule is disabled." in output
     assert "pathkeeper schedule install" in output
     assert "cannot find the file" not in output.lower()
+
+
+def test_schedule_install_dry_run_reports_plan(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
+    exit_code = cli.run(["schedule", "install", "--trigger", "logon", "--dry-run"])
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Dry run: would install scheduled backups for os=windows interval=startup trigger=logon." in output
+
+
+def test_schedule_remove_dry_run_reports_plan(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
+    exit_code = cli.run(["schedule", "remove", "--dry-run"])
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Dry run: would remove scheduled backups for os=windows." in output
 
 
 def test_interactive_schedule_status_offers_install_when_disabled(
