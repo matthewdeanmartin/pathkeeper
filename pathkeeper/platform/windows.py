@@ -57,7 +57,11 @@ class WindowsPlatform:
             with winreg.OpenKey(root, key_name, 0, winreg.KEY_SET_VALUE) as key:
                 winreg.SetValueEx(key, REG_PATH_VALUE, 0, winreg.REG_EXPAND_SZ, raw)
         except PermissionError as error:
-            raise PermissionDeniedError(str(error)) from error
+            scope_name = "system" if key_name == SYSTEM_KEY else "user"
+            raise PermissionDeniedError(
+                f"Access denied writing the {scope_name} PATH. Re-run from an elevated shell "
+                "or limit the operation to a writable scope."
+            ) from error
         self._broadcast_change()
 
     def write_system_path(self, entries: list[str]) -> None:
@@ -65,6 +69,22 @@ class WindowsPlatform:
 
     def write_user_path(self, entries: list[str]) -> None:
         self._write_registry(winreg.HKEY_CURRENT_USER if winreg else object(), USER_KEY, entries)
+
+    def ensure_system_writable(self) -> None:
+        if os.name != "nt":
+            return
+        try:
+            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except (AttributeError, OSError) as error:
+            raise PermissionDeniedError(
+                "Unable to determine whether the system PATH is writable. "
+                "Re-run from an elevated shell or limit the operation to a writable scope."
+            ) from error
+        if not is_admin:
+            raise PermissionDeniedError(
+                "Access denied writing the system PATH. Re-run from an elevated shell "
+                "or limit the operation to a writable scope."
+            )
 
     def _broadcast_change(self) -> None:
         if os.name != "nt":

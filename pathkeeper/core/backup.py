@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import socket
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,6 +13,7 @@ from pathkeeper.models import BackupRecord, PathSnapshot
 
 
 BACKUP_VERSION = 1
+logger = logging.getLogger(__name__)
 
 
 def backup_filename(timestamp: datetime, tag: str) -> str:
@@ -24,7 +27,8 @@ def create_backup(
     os_name: str,
     tag: str,
     note: str,
-) -> Path:
+    force: bool = False,
+) -> Path | None:
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC)
     record = BackupRecord(
@@ -39,12 +43,18 @@ def create_backup(
         system_path_raw=snapshot.system_path_raw,
         user_path_raw=snapshot.user_path_raw,
     )
+    existing = list_backups(backup_dir)
+    if not force and existing and existing[0].snapshot == snapshot and existing[0].os_name == os_name:
+        logger.warning("Skipping backup because the current PATH matches the latest saved backup.")
+        return None
+    logger.info("Creating %s backup in %s", tag, backup_dir)
     destination = backup_dir / backup_filename(timestamp, tag)
     suffix = 1
     while destination.exists():
         destination = backup_dir / f"{destination.stem}-{suffix:02d}.json"
         suffix += 1
     destination.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
+    logger.info("Created backup at %s", destination)
     return destination
 
 
@@ -64,6 +74,18 @@ def load_backup(path: Path) -> BackupRecord:
         user_path_raw=str(payload["user_path_raw"]),
         source_file=path,
     )
+
+
+def backup_content_hash(record: BackupRecord) -> str:
+    payload = {
+        "os": record.os_name,
+        "system_path": record.system_path,
+        "user_path": record.user_path,
+        "system_path_raw": record.system_path_raw,
+        "user_path_raw": record.user_path_raw,
+    }
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return digest[:12]
 
 
 def list_backups(backup_dir: Path) -> list[BackupRecord]:
@@ -106,7 +128,11 @@ def prune_backups(backup_dir: Path, config: AppConfig) -> None:
         for record in remaining[: max(0, config.general.max_backups - len(keep))]
         if record.source_file is not None
     )
+    removed = 0
     for record in records:
         if record.source_file is not None and record.source_file not in keep:
             record.source_file.unlink(missing_ok=True)
+            removed += 1
+    if removed:
+        logger.info("Pruned %s old backup(s).", removed)
 

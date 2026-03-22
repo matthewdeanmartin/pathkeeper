@@ -6,7 +6,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from pathkeeper.errors import PathkeeperError
+from pathkeeper.errors import PathkeeperError, PermissionDeniedError
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,13 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, check=False, capture_output=True, text=True)
 
 
+def _clean_windows_task_error(text: str) -> str:
+    cleaned = text.strip()
+    while cleaned.upper().startswith("ERROR:"):
+        cleaned = cleaned[6:].strip()
+    return cleaned
+
+
 def schedule_status(os_name: str) -> ScheduleStatus:
     if os_name == "windows":
         result = _run(["schtasks", "/Query", "/TN", "pathkeeper"])
@@ -35,15 +42,22 @@ def schedule_status(os_name: str) -> ScheduleStatus:
     return ScheduleStatus(timer.exists() or cron.exists(), str(timer if timer.exists() else cron))
 
 
-def install_schedule(os_name: str, interval: str) -> str:
+def install_schedule(os_name: str, interval: str, *, trigger: str = "startup") -> str:
     if os_name == "windows":
-        schedule = "ONSTART" if interval == "startup" else "MINUTE"
+        schedule = "ONSTART" if trigger == "startup" else "ONLOGON"
+        if interval != "startup" and trigger == "startup":
+            schedule = "MINUTE"
         command = ["schtasks", "/Create", "/F", "/TN", "pathkeeper", "/TR", _command_line(), "/SC", schedule]
-        if interval != "startup":
+        if interval != "startup" and schedule == "MINUTE":
             command.extend(["/MO", interval.removesuffix("m")])
         result = _run(command)
         if result.returncode != 0:
-            raise PathkeeperError(result.stderr.strip() or "Failed to install Windows scheduled task.")
+            detail = _clean_windows_task_error(result.stderr or result.stdout or "Failed to install Windows scheduled task.")
+            if "access is denied" in detail.lower():
+                raise PermissionDeniedError(detail)
+            raise PathkeeperError(detail)
+        if trigger == "logon":
+            return "Installed Windows scheduled task for user logon."
         return "Installed Windows scheduled task."
     if os_name == "darwin":
         plist = Path.home() / "Library" / "LaunchAgents" / "com.pathkeeper.backup.plist"

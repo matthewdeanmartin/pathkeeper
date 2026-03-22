@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "pytable-formatter>=0.1.1",
+]
 
 [project.scripts]
 pathkeeper = "pathkeeper.cli:main"

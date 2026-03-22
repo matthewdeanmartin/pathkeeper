@@ -1,7 +1,7 @@
 site_name: "pathkeeper"
 site_url: "https://pathkeeper.readthedocs.io/"
 site_author: "Matthew Dean Martin <matthewdeanmartin@gmail.com>"
-site_description: "<tbd>"
+site_description: "Cross-platform PATH backup, restore, and diagnostics tool"
 
 repo_url: "https://github.com/matthewdeanmartin/pathkeeper"
 

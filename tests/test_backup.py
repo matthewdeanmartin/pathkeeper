@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from pathkeeper.config import AppConfig, GeneralConfig
 from pathkeeper.core.backup import create_backup, list_backups, prune_backups
@@ -27,10 +30,20 @@ def _write_backup(path: Path, *, timestamp: str, tag: str) -> None:
 
 def test_create_backup_uses_unique_filenames(tmp_path: Path) -> None:
     snapshot = PathSnapshot(["/usr/bin"], ["/home/test/bin"], "/usr/bin", "/home/test/bin")
-    first = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
-    second = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
+    first = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="", force=True)
+    second = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="", force=True)
     assert first != second
     assert len(list(tmp_path.glob("*.json"))) == 2
+
+
+def test_create_backup_skips_identical_latest_snapshot(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    snapshot = PathSnapshot(["/usr/bin"], ["/home/test/bin"], "/usr/bin", "/home/test/bin")
+    create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
+    with caplog.at_level(logging.WARNING):
+        skipped = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
+    assert skipped is None
+    assert len(list(tmp_path.glob("*.json"))) == 1
+    assert "Skipping backup because the current PATH matches the latest saved backup." in caplog.text
 
 
 def test_prune_backups_honors_manual_and_auto_limits(tmp_path: Path) -> None:

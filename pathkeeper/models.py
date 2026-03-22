@@ -135,6 +135,21 @@ class CleanupResult:
 
 
 @dataclass(frozen=True)
+class TruncatedPathCandidate:
+    path: str
+    source: str
+
+
+@dataclass(frozen=True)
+class TruncatedPathRepair:
+    display_index: int
+    scope_index: int
+    scope: Scope
+    value: str
+    candidates: list[TruncatedPathCandidate]
+
+
+@dataclass(frozen=True)
 class CatalogTool:
     name: str
     category: str
