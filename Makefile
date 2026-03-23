@@ -6,6 +6,7 @@ PYLINT_MAIN_TARGETS := pathkeeper
 PYLINT_TEST_TARGETS := tests
 MARKDOWN_TARGETS := README.md CHANGELOG.md docs spec
 YAML_TARGETS := .github mkdocs.yml .readthedocs.yaml
+GHA_WORKFLOWS := .github/workflows
 ABOUT_FILE := __about__.py
 
 .PHONY: \
@@ -17,6 +18,9 @@ ABOUT_FILE := __about__.py
 	test bench \
 	typecheck typecheck-mypy typecheck-ty typecheck-basedpyright \
 	metadata metadata-check version-check dev-status \
+	gha-lint gha-update \
+	shellcheck makefile-lint \
+	publish-check \
 	check prepublish \
 	run
 
@@ -107,9 +111,25 @@ version-check:
 dev-status:
 	@$(UV) run troml-dev-status validate .
 
+gha-lint:
+	@actionlint $(GHA_WORKFLOWS)/*.yml
+
+gha-update:
+	@GITHUB_TOKEN=$$(gh auth token) pinact run --update $(GHA_WORKFLOWS)/*.yml
+
+shellcheck:
+	@actionlint -shellcheck "$(UV) run shellcheck" $(GHA_WORKFLOWS)/*.yml
+
+makefile-lint:
+	@checkmake --config checkmake.ini Makefile
+
+publish-check:
+	@$(UV) build
+	@$(UV) run python scripts/check_wheel_contents.py
+
 check: format-check lint-check security test typecheck metadata-check version-check
 
-prepublish: check dev-status
+prepublish: check dev-status publish-check
 
 run:
 	@$(UV) run pathkeeper

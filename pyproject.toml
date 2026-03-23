@@ -1,15 +1,16 @@
-[build-system]
-requires = ["hatchling>=1.27.0"]
-build-backend = "hatchling.build"
-
 [project]
 name = "pathkeeper"
 version = "0.1.0"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 1 - Planning",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
     "pytable-formatter>=0.1.1",
@@ -17,6 +18,11 @@ dependencies = [
     "rich-argparse>=1.5.0",
     "totalhelp>=0.1.0",
 ]
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
 
 #[project.optional-dependencies]
 #completion = [
@@ -49,6 +55,7 @@ dev = [
     "ty>=0.0.24",
     "yamlfix>=1.19.1",
     "hypothesis>=6.151.9",
+    "shellcheck-py>=0.11.0.1",
 ]
 
 [tool.pytest.ini_options]
@@ -127,7 +134,7 @@ default-groups = ["dev"]
 legacy_tox_ini = """
 [tox]
 min_version = 4.0
-env_list = py313, py314, py315
+env_list = py312, py313, py314
 
 [testenv]
 deps =
