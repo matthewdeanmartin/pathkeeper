@@ -245,6 +245,33 @@ def build_parser() -> argparse.ArgumentParser:
         "--scope", default="all", choices=["system", "user", "all"]
     )
 
+    shadow_parser = subparsers.add_parser(
+        "shadow",
+        help="Show executables that shadow each other across PATH directories.",
+    )
+    shadow_parser.add_argument(
+        "--scope", default="all", choices=["system", "user", "all"]
+    )
+    shadow_parser.add_argument("--json", action="store_true", dest="as_json")
+
+    diff_current_parser = subparsers.add_parser(
+        "diff-current",
+        help="Show differences between a backup and the current live PATH.",
+    )
+    diff_current_parser.add_argument(
+        "identifier",
+        nargs="?",
+        help="Backup file path, timestamp prefix, or number. Defaults to latest.",
+    )
+    diff_current_parser.add_argument(
+        "--scope", default="all", choices=["system", "user", "all"]
+    )
+
+    subparsers.add_parser(
+        "runtime-entries",
+        help="Show PATH entries injected at runtime (not from registry / rc files).",
+    )
+
     shell_startup_parser = subparsers.add_parser(
         "shell-startup",
         help="Inject 'pathkeeper backup' into a shell startup file (Git Bash, WSL, PowerShell profile, etc.).",
@@ -344,13 +371,11 @@ def _init_theme(args: argparse.Namespace) -> None:
         logger.warning("Could not load display config; using defaults: %s", exc)
 
 
-def _print_diagnostics(args: argparse.Namespace) -> int:
-    from pathkeeper.core.diagnostics import doctor_recommendations, explain_entry
+def _print_inspect(args: argparse.Namespace) -> int:
 
-    logger.info("Running %s for scope=%s", args.command, args.scope)
+    logger.info("Running inspect for scope=%s", args.scope)
     scope = _scope(args.scope)
     _snapshot, report = _read_current_report(scope)
-    explain = args.command == "doctor" and getattr(args, "explain", False)
     if args.as_json:
         payload = {
             "summary": report.summary.__dict__,
@@ -378,6 +403,10 @@ def _print_diagnostics(args: argparse.Namespace) -> int:
             is_warn = False
         elif entry.is_duplicate:
             raw_marker = "D"
+            is_ok = False
+            is_warn = True
+        elif entry.likely_missing_separator:
+            raw_marker = "!!"
             is_ok = False
             is_warn = True
         elif not entry.exists:
@@ -415,14 +444,6 @@ def _print_diagnostics(args: argparse.Namespace) -> int:
         print(
             f"{t.dim(f'{entry.index:>3}.')} {colored_marker} {scope_label} {colored_value}{duplicate}{arrow}{exe_hint}"
         )
-        if explain and not (
-            entry.exists
-            and entry.is_dir
-            and not entry.is_duplicate
-            and not entry.is_empty
-        ):
-            explanation = explain_entry(entry, report.os_name)
-            print(f"       {t.dim(explanation)}")
     print()
     summary = (
         f"Entries: {report.summary.total}  "
@@ -434,10 +455,101 @@ def _print_diagnostics(args: argparse.Namespace) -> int:
     print(summary)
     for warning in report.summary.warnings:
         print(t.warn(f"Warning: {warning}"))
-    if args.command == "doctor":
-        print()
-        for recommendation in doctor_recommendations(report):
-            print(f"  {t.accent('-')} {recommendation}")
+    return 0
+
+
+def _print_doctor(args: argparse.Namespace) -> int:
+    from pathkeeper.core.diagnostics import (
+        _STATUS_FAIL,
+        _STATUS_WARN,
+        doctor_checks,
+        explain_entry,
+    )
+
+    logger.info("Running doctor for scope=%s", args.scope)
+    scope = _scope(args.scope)
+    _snapshot, report = _read_current_report(scope)
+    verbose = getattr(args, "explain", False)
+    if args.as_json:
+        checks = doctor_checks(report)
+        payload = {
+            "checks": [
+                {
+                    "name": c.name,
+                    "status": c.status,
+                    "detail": c.detail,
+                    "affected": [
+                        {"index": e.index, "value": e.value, "scope": e.scope.value}
+                        for e in c.affected
+                    ],
+                    "remediation": c.remediation,
+                }
+                for c in checks
+            ],
+            "summary": report.summary.__dict__,
+            "path_length": report.path_length,
+        }
+        _render_report(payload)
+        return 0
+    print(
+        t.header("  PATH Health Check")
+        + t.dim(f"  ({report.summary.total} entries, scope: {scope.value})")
+    )
+    print()
+    checks = doctor_checks(report)
+    issue_count = 0
+    for check in checks:
+        if check.status == _STATUS_FAIL:
+            marker = t.error("FAIL")
+            issue_count += len(check.affected) if check.affected else 1
+        elif check.status == _STATUS_WARN:
+            marker = t.warn("WARN")
+            issue_count += len(check.affected) if check.affected else 1
+        else:
+            marker = t.ok("PASS")
+        # Pad the check name for alignment
+        padded_name = check.name.ljust(36, ".")
+        print(f"  {marker}  {padded_name} {check.detail}")
+        if check.affected and check.status != "pass":
+            limit = None if verbose else 5
+            shown = check.affected[:limit]
+            for entry in shown:
+                scope_label = t.dim(f"({entry.scope.value})")
+                value_str = t.path_entry(
+                    entry.value,
+                    exists=entry.exists,
+                    duplicate=entry.is_duplicate,
+                    empty=entry.is_empty,
+                    is_file=entry.exists and not entry.is_dir,
+                )
+                dup_hint = (
+                    t.warn(f" dup-of #{entry.duplicate_of}")
+                    if entry.duplicate_of is not None
+                    else ""
+                )
+                print(
+                    f"          {t.dim(f'#{entry.index}')} {scope_label} {value_str}{dup_hint}"
+                )
+                if verbose:
+                    explanation = explain_entry(entry, report.os_name)
+                    print(f"          {t.dim(explanation)}")
+            remaining = len(check.affected) - len(shown)
+            if remaining > 0:
+                print(
+                    t.dim(
+                        f"          ... and {remaining} more (use --explain to see all)"
+                    )
+                )
+        if check.remediation and check.status != "pass":
+            print(f"          {t.accent('->')} {check.remediation}")
+        if check.status != "pass":
+            print()
+    print()
+    if issue_count == 0:
+        print(t.ok("  Overall: healthy"))
+    else:
+        label = "issue" if issue_count == 1 else "issues"
+        print(t.warn(f"  Overall: needs attention ({issue_count} {label})"))
     return 0
 
 
@@ -1435,6 +1547,112 @@ def _diff(args: argparse.Namespace) -> int:
     return 0
 
 
+def _shadow(args: argparse.Namespace) -> int:
+    from pathkeeper.core.shadow import find_shadows
+
+    scope = _scope(args.scope)
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    os_name = normalized_os_name()
+    groups = find_shadows(
+        system_entries=snapshot.system_path,
+        user_entries=snapshot.user_path,
+        os_name=os_name,
+        scope=scope,
+    )
+    if not groups:
+        print(t.ok("No shadowed executables found."))
+        return 0
+    if getattr(args, "as_json", False):
+        import json
+
+        payload = [
+            {
+                "name": g.name,
+                "entries": [
+                    {"directory": e.directory, "scope": e.scope.value, "index": e.index}
+                    for e in g.entries
+                ],
+            }
+            for g in groups
+        ]
+        print(json.dumps(payload, indent=2))
+        return 0
+    print(f"Found {t.warn(str(len(groups)))} shadowed executable(s):\n")
+    for group in groups:
+        print(f"  {t.bold(group.name)}")
+        for i, entry in enumerate(group.entries):
+            prefix = t.ok("winner") if i == 0 else t.warn("shadow")
+            scope_label = t.dim(f"({entry.scope.value})")
+            print(f"    {prefix}  #{entry.index} {scope_label} {entry.directory}")
+        print()
+    return 0
+
+
+def _diff_current(args: argparse.Namespace) -> int:
+    from pathkeeper.core.diff import compute_diff, render_diff
+
+    scope = _scope(args.scope)
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    os_name = normalized_os_name()
+    identifier = getattr(args, "identifier", None)
+    if identifier is None:
+        records = _recent_backups(limit=20)
+        if not records:
+            print("No backups available.")
+            return 0
+        print("Most recent backups:")
+        _render_backup_listing(records, numbered=True)
+        identifier = input("Select backup number (blank for 1): ").strip() or "1"
+    record, _records = _select_backup(identifier)
+    name = record.source_file.name if record.source_file else identifier
+    print(t.dim(f"Comparing backup {name}  ->  current PATH"))
+    print()
+    if scope in {Scope.SYSTEM, Scope.ALL}:
+        diff = compute_diff(record.system_path, snapshot.system_path, os_name)
+        print(t.bold("System PATH:"))
+        print(render_diff(diff))
+        print()
+    if scope in {Scope.USER, Scope.ALL}:
+        diff = compute_diff(record.user_path, snapshot.user_path, os_name)
+        print(t.bold("User PATH:"))
+        print(render_diff(diff))
+    return 0
+
+
+def _runtime_entries(_args: argparse.Namespace) -> int:
+    from pathkeeper.core.runtime_diff import detect_runtime_entries
+
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    os_name = normalized_os_name()
+    entries = detect_runtime_entries(snapshot, os_name)
+    runtime_only = [e for e in entries if not e.persisted]
+    if not runtime_only:
+        print(
+            t.ok(
+                "All PATH entries match the persisted PATH. "
+                "No runtime-only additions detected."
+            )
+        )
+        return 0
+    print(
+        f"Found {t.warn(str(len(runtime_only)))} runtime-only PATH "
+        f"entry/entries (not in registry / rc files):\n"
+    )
+    for entry in entries:
+        if entry.persisted:
+            scope_label = f"({entry.scope.value})" if entry.scope else ""
+            print(f"  {t.ok('[persisted]')} {t.dim(scope_label)} {entry.value}")
+        else:
+            print(f"  {t.warn('[runtime]')}  {t.accent(entry.value)}")
+    return 0
+
+
 _SHELL_STARTUP_MARKER = "# pathkeeper backup (added by pathkeeper shell-startup)"
 _SHELL_STARTUP_LINE = "pathkeeper backup --quiet --tag auto"
 
@@ -1675,13 +1893,13 @@ def _interactive() -> int:
             "Inspect",
             "Review PATH entries and their health",
             parser.parse_args(["inspect"]),
-            _print_diagnostics,
+            _print_inspect,
         ),
         "2": MenuEntry(
             "Doctor",
             "Diagnose problems and suggest repairs",
             parser.parse_args(["doctor"]),
-            _print_diagnostics,
+            _print_doctor,
         ),
         "3": MenuEntry(
             "Create backup",
@@ -1743,6 +1961,24 @@ def _interactive() -> int:
             parser.parse_args(["shell-startup"]),
             _shell_startup,
         ),
+        "13": MenuEntry(
+            "Shadows",
+            "Find executables shadowed by earlier PATH entries",
+            parser.parse_args(["shadow"]),
+            _shadow,
+        ),
+        "14": MenuEntry(
+            "Diff vs current",
+            "Compare a backup against the current live PATH",
+            parser.parse_args(["diff-current"]),
+            _diff_current,
+        ),
+        "15": MenuEntry(
+            "Runtime entries",
+            "Show PATH entries injected at runtime",
+            parser.parse_args(["runtime-entries"]),
+            _runtime_entries,
+        ),
     }
     _print_interactive_startup_banner()
     return run_interactive(dispatch)
@@ -1762,6 +1998,9 @@ def run(argv: Sequence[str] | None = None) -> int:
     if args.command == "gui" or getattr(args, "gui", False):
         from pathkeeper.gui.app import launch_gui
 
+        # Default GUI logging to INFO so background errors are visible.
+        if args.log_level == "warning":
+            _configure_logging("info")
         return launch_gui()
     if args.command is None:
         from pathkeeper.config import app_home
@@ -1769,8 +2008,10 @@ def run(argv: Sequence[str] | None = None) -> int:
         if not app_home().exists():
             return _first_run_wizard()
         return _interactive()
-    if args.command in {"inspect", "doctor"}:
-        return _print_diagnostics(args)
+    if args.command == "inspect":
+        return _print_inspect(args)
+    if args.command == "doctor":
+        return _print_doctor(args)
     if args.command == "backup":
         return _backup_command(args)
     if args.command == "backups":
@@ -1792,6 +2033,12 @@ def run(argv: Sequence[str] | None = None) -> int:
         return _schedule(args)
     if args.command == "diff":
         return _diff(args)
+    if args.command == "shadow":
+        return _shadow(args)
+    if args.command == "diff-current":
+        return _diff_current(args)
+    if args.command == "runtime-entries":
+        return _runtime_entries(args)
     if args.command == "shell-startup":
         return _shell_startup(args)
     raise PathkeeperError(f"Unknown command: {args.command}")

@@ -26,7 +26,13 @@ from pathkeeper.platform import get_platform_adapter, normalized_os_name
 
 if TYPE_CHECKING:
     from pathkeeper.core.path_writer import PathWriter
-    from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot
+    from pathkeeper.core.shadow import ShadowGroup
+    from pathkeeper.models import (
+        BackupRecord,
+        DiagnosticReport,
+        PathSnapshot,
+        RuntimePathEntry,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -116,3 +122,69 @@ def backup_now(*, tag: str, note: str, force: bool = False) -> Path | None:
 def format_backup_timestamp_utc(value: datetime) -> str:
     timestamp = value.astimezone(UTC)
     return timestamp.strftime("%Y-%m-%d %H:%MZ")
+
+
+# ------------------------------------------------------------------
+# Shadows
+# ------------------------------------------------------------------
+
+
+def find_shadows_report(scope: Scope) -> tuple[PathSnapshot, list[ShadowGroup]]:
+    """Read the live PATH and return shadow groups."""
+    from pathkeeper.core.shadow import find_shadows
+
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    groups = find_shadows(
+        system_entries=snapshot.system_path,
+        user_entries=snapshot.user_path,
+        os_name=normalized_os_name(),
+        scope=scope,
+    )
+    return snapshot, groups
+
+
+# ------------------------------------------------------------------
+# Backup diff helpers
+# ------------------------------------------------------------------
+
+
+def diff_backup_vs_current(identifier: str, scope: Scope) -> tuple[str, str, str]:
+    """Diff a backup against the current live PATH.
+
+    Returns (backup_name, system_diff_text, user_diff_text).
+    """
+    from pathkeeper.core.diff import compute_diff, render_diff
+
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    os_name = normalized_os_name()
+    record, _ = select_backup(identifier)
+    name = record.source_file.name if record.source_file else identifier
+    sys_text = ""
+    usr_text = ""
+    if scope in {Scope.SYSTEM, Scope.ALL}:
+        diff = compute_diff(record.system_path, snapshot.system_path, os_name)
+        sys_text = render_diff(diff)
+    if scope in {Scope.USER, Scope.ALL}:
+        diff = compute_diff(record.user_path, snapshot.user_path, os_name)
+        usr_text = render_diff(diff)
+    return name, sys_text, usr_text
+
+
+# ------------------------------------------------------------------
+# Runtime PATH detection
+# ------------------------------------------------------------------
+
+
+def detect_runtime_path_entries() -> list[RuntimePathEntry]:
+    """Return the live PATH annotated with persisted vs runtime-only."""
+    from pathkeeper.core.runtime_diff import detect_runtime_entries
+
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    os_name = normalized_os_name()
+    return detect_runtime_entries(snapshot, os_name)

@@ -75,6 +75,6 @@ def _version_from_which(executable: str) -> tuple[int, ...] | None:
         if match:
             parts = tuple(int(g) for g in match.groups() if g is not None)
             return parts
-    except CalledProcessError:
+    except (CalledProcessError, FileNotFoundError, OSError):
         return None
     return None

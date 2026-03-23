@@ -38,6 +38,37 @@ def has_unexpanded_variables(entry: str, os_name: str) -> bool:
     return pattern.search(entry) is not None
 
 
+def _looks_like_missing_separator(entry: str, os_name: str) -> bool:
+    """Return True if *entry* looks like two paths glued together.
+
+    Heuristic: an invalid entry that contains an embedded absolute-path start
+    mid-string (e.g. ``/c/foo/c/bar`` has ``/c/`` starting at a non-zero
+    offset, or ``C:\\Windows\\System32C:\\Program Files`` has a drive letter
+    mid-string).
+    """
+    if not entry or len(entry) < 4:
+        return False
+    if os_name == "windows":
+        # Look for a drive letter pattern (X:\ or X:/) starting after position 0
+        for i in range(2, len(entry) - 1):
+            if entry[i].isalpha() and entry[i + 1 : i + 2] == ":":
+                return True
+        # Also check for semicolons that survived un-split (shouldn't happen,
+        # but catches e.g. manually constructed values)
+        return ";" in entry[1:]
+    # Unix: look for an absolute path start (/) embedded after position 0.
+    # We need at least two non-adjacent / characters to avoid false positives
+    # on normal deep paths.  The pattern we're looking for is a second
+    # root-like segment — a / immediately preceded by a non-/ character where
+    # the prefix and suffix both form plausible absolute paths.
+    # Simple heuristic: the entry doesn't exist, is long, and splitting on a
+    # mid-string "/" where both halves start with "/" yields two existing dirs
+    # (checked by the caller).  Here we use a cheaper signal: the entry
+    # contains a colon (the Unix separator) which would indicate a literal
+    # separator that wasn't split.
+    return ":" in entry
+
+
 def canonicalize_entry(entry: str, os_name: str) -> str:
     value = expand_entry(entry)
     if os_name == "windows":
@@ -70,6 +101,11 @@ def _analyze_group(
         if canonical and duplicate_of is None:
             seen[canonical] = start_index + offset
         exes = list_executables(expanded, os_name) if (is_dir and not is_empty) else []
+        missing_sep = (
+            not is_empty
+            and not exists
+            and _looks_like_missing_separator(entry, os_name)
+        )
         results.append(
             DiagnosticEntry(
                 index=start_index + offset,
@@ -83,6 +119,7 @@ def _analyze_group(
                 has_unexpanded_vars=has_unexpanded_variables(entry, os_name),
                 expanded_value=expanded,
                 executables=exes,
+                likely_missing_separator=missing_sep,
             )
         )
     return results
@@ -119,6 +156,13 @@ def analyze_snapshot(
             )
         elif path_length > 2047:
             warnings.append("PATH exceeds the legacy setx limit of 2047 characters.")
+    missing_sep_count = sum(1 for item in entries if item.likely_missing_separator)
+    if missing_sep_count:
+        warnings.append(
+            f"{missing_sep_count} entry/entries look like paths glued together "
+            "(missing separator). Inspect them and consider editing with "
+            "`pathkeeper edit`."
+        )
     summary = DiagnosticSummary(
         total=len(entries),
         valid=sum(
@@ -130,6 +174,7 @@ def analyze_snapshot(
         duplicates=sum(1 for item in entries if item.is_duplicate),
         empty=sum(1 for item in entries if item.is_empty),
         files=sum(1 for item in entries if item.exists and not item.is_dir),
+        missing_separators=missing_sep_count,
         warnings=tuple(warnings),
     )
     return DiagnosticReport(
@@ -145,6 +190,11 @@ def doctor_recommendations(report: DiagnosticReport) -> list[str]:
         )
     if report.summary.duplicates:
         recommendations.append("Run `pathkeeper dedupe` to remove duplicate entries.")
+    if report.summary.missing_separators:
+        recommendations.append(
+            "Some entries look like paths with a missing separator. "
+            "Use `pathkeeper edit` to split them."
+        )
     if report.summary.warnings:
         recommendations.append(
             "Create a backup now and consider restoring a healthier snapshot."
@@ -152,6 +202,211 @@ def doctor_recommendations(report: DiagnosticReport) -> list[str]:
     if not recommendations:
         recommendations.append("No obvious PATH issues were detected.")
     return recommendations
+
+
+# ------------------------------------------------------------------
+# Structured doctor checks
+# ------------------------------------------------------------------
+
+_STATUS_PASS = "pass"  # nosec B105
+_STATUS_FAIL = "fail"
+_STATUS_WARN = "warn"
+
+
+class DoctorCheck:
+    """One diagnostic check with a status, affected entries, and remediation."""
+
+    __slots__ = ("affected", "detail", "name", "remediation", "status")
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        status: str,
+        detail: str,
+        affected: list[DiagnosticEntry] | None = None,
+        remediation: str = "",
+    ) -> None:
+        self.name = name
+        self.status = status
+        self.detail = detail
+        self.affected: list[DiagnosticEntry] = affected or []
+        self.remediation = remediation
+
+
+def doctor_checks(report: DiagnosticReport) -> list[DoctorCheck]:
+    """Return an ordered list of structured doctor checks."""
+    checks: list[DoctorCheck] = []
+    s = report.summary
+
+    # 1. Duplicates
+    dups = [e for e in report.entries if e.is_duplicate]
+    if dups:
+        checks.append(
+            DoctorCheck(
+                "Duplicate entries",
+                status=_STATUS_FAIL,
+                detail=f"{s.duplicates} found",
+                affected=dups,
+                remediation="Run `pathkeeper dedupe` to remove duplicates.",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck("Duplicate entries", status=_STATUS_PASS, detail="none found")
+        )
+
+    # 2. Missing / invalid directories (excluding files and missing-separator)
+    invalid = [
+        e
+        for e in report.entries
+        if e.value
+        and not e.exists
+        and not e.is_dir
+        and not e.is_empty
+        and not e.likely_missing_separator
+        and not e.is_duplicate
+    ]
+    if invalid:
+        checks.append(
+            DoctorCheck(
+                "Missing directories",
+                status=_STATUS_FAIL,
+                detail=f"{len(invalid)} found",
+                affected=invalid,
+                remediation=(
+                    "Run `pathkeeper dedupe --remove-invalid` to remove, "
+                    "or `pathkeeper edit --remove <path>` for individual entries."
+                ),
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck("Missing directories", status=_STATUS_PASS, detail="none found")
+        )
+
+    # 3. Files masquerading as directories
+    files = [e for e in report.entries if e.exists and not e.is_dir and not e.is_empty]
+    if files:
+        checks.append(
+            DoctorCheck(
+                "Files in PATH (not directories)",
+                status=_STATUS_FAIL,
+                detail=f"{len(files)} found",
+                affected=files,
+                remediation="Remove with `pathkeeper edit --remove <path>`.",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck(
+                "Files in PATH (not directories)",
+                status=_STATUS_PASS,
+                detail="none found",
+            )
+        )
+
+    # 4. Empty entries (double separators)
+    empties = [e for e in report.entries if e.is_empty]
+    if empties:
+        checks.append(
+            DoctorCheck(
+                "Empty entries (stray separators)",
+                status=_STATUS_WARN,
+                detail=f"{s.empty} found",
+                affected=empties,
+                remediation="Run `pathkeeper dedupe` to clean them up.",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck(
+                "Empty entries (stray separators)",
+                status=_STATUS_PASS,
+                detail="none found",
+            )
+        )
+
+    # 5. Missing separators (glued paths)
+    glued = [e for e in report.entries if e.likely_missing_separator]
+    if glued:
+        checks.append(
+            DoctorCheck(
+                "Missing separators (glued paths)",
+                status=_STATUS_FAIL,
+                detail=f"{s.missing_separators} found",
+                affected=glued,
+                remediation="Use `pathkeeper edit` to split into separate entries.",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck(
+                "Missing separators (glued paths)",
+                status=_STATUS_PASS,
+                detail="none found",
+            )
+        )
+
+    # 6. Unexpanded variables
+    unexp = [
+        e
+        for e in report.entries
+        if e.has_unexpanded_vars and not e.is_empty and not e.is_duplicate
+    ]
+    if unexp:
+        checks.append(
+            DoctorCheck(
+                "Unexpanded variables",
+                status=_STATUS_WARN,
+                detail=f"{len(unexp)} found",
+                affected=unexp,
+                remediation="Check that referenced variables are defined.",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck(
+                "Unexpanded variables", status=_STATUS_PASS, detail="none found"
+            )
+        )
+
+    # 7. PATH length (Windows-specific)
+    if report.os_name == "windows":
+        if report.path_length > 32767:
+            checks.append(
+                DoctorCheck(
+                    "PATH length",
+                    status=_STATUS_FAIL,
+                    detail=f"{report.path_length:,} chars (exceeds registry limit)",
+                    remediation=(
+                        "PATH exceeds the Windows registry limit of 32,767 characters. "
+                        "Create a backup and remove unnecessary entries."
+                    ),
+                )
+            )
+        elif report.path_length > 2047:
+            checks.append(
+                DoctorCheck(
+                    "PATH length",
+                    status=_STATUS_WARN,
+                    detail=f"{report.path_length:,} chars (exceeds setx limit)",
+                    remediation=(
+                        "PATH exceeds the legacy setx limit of 2,047 characters. "
+                        "Some older tools may not see the full PATH."
+                    ),
+                )
+            )
+        else:
+            checks.append(
+                DoctorCheck(
+                    "PATH length",
+                    status=_STATUS_PASS,
+                    detail=f"{report.path_length:,} chars",
+                )
+            )
+
+    return checks
 
 
 def explain_entry(entry: DiagnosticEntry, os_name: str) -> str:
@@ -177,6 +432,12 @@ def explain_entry(entry: DiagnosticEntry, os_name: str) -> str:
         return (
             f"This entry contains an unexpanded shell variable ({entry.value!r}). "
             "Variables are not expanded in PATH entries read from the registry or environment on all platforms."
+        )
+    if entry.likely_missing_separator:
+        return (
+            f"This entry looks like two or more paths glued together: {entry.value!r}. "
+            "A PATH separator (colon on Unix, semicolon on Windows) is probably missing. "
+            "Use `pathkeeper edit` to split it into separate entries."
         )
     if not entry.exists:
         return (

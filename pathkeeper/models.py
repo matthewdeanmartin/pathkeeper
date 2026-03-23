@@ -102,6 +102,7 @@ class DiagnosticEntry:
     has_unexpanded_vars: bool
     expanded_value: str
     executables: list[str] = field(default_factory=list)
+    likely_missing_separator: bool = False
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,7 @@ class DiagnosticSummary:
     duplicates: int
     empty: int
     files: int
+    missing_separators: int = 0
     warnings: tuple[str, ...] = ()
 
 
@@ -169,6 +171,15 @@ class PopulateMatch:
     category: str
     path: str
     found_executables: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RuntimePathEntry:
+    """A PATH entry annotated with whether it came from the persisted PATH."""
+
+    value: str
+    persisted: bool
+    scope: Scope | None  # None when the entry is runtime-only
 
 
 @dataclass

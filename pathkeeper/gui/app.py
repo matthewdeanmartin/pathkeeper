@@ -127,6 +127,9 @@ class PathkeeperApp(tk.Tk):
             ("populate", "Populate"),
             ("repair", "Repair"),
             ("schedule", "Schedule"),
+            ("shadow", "Shadows"),
+            ("diff_current", "Diff vs Current"),
+            ("runtime", "Runtime Entries"),
         ]
         for key, label in items:
             btn = tk.Button(
@@ -204,6 +207,9 @@ def _build_panel(
         "populate": PopulatePanel,
         "repair": RepairPanel,
         "schedule": SchedulePanel,
+        "shadow": ShadowPanel,
+        "diff_current": DiffCurrentPanel,
+        "runtime": RuntimeEntriesPanel,
     }
     cls = builders.get(name, DashboardPanel)
     return cls(parent, runner, status_var)
@@ -545,14 +551,11 @@ class InspectPanel(_BasePanel):
         self._status.set("Error")
 
 
-class DoctorPanel(InspectPanel):
-    _doctor_mode: bool = True
-
+class DoctorPanel(_BasePanel):
     def __init__(
         self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
     ) -> None:
-        # Re-implement to add doctor heading & recommendations
-        _BasePanel.__init__(self, parent, runner, status_var)
+        super().__init__(parent, runner, status_var)
         tk.Label(
             self,
             text="Doctor",
@@ -567,32 +570,105 @@ class DoctorPanel(InspectPanel):
         self._tree = _make_tree(
             self,
             [
-                ("idx", "#", 40),
                 ("status", "Status", 60),
-                ("scope", "Scope", 70),
-                ("path", "Path", 420),
-                ("executables", "Executables", 200),
-                ("notes", "Notes", 160),
+                ("check", "Check", 280),
+                ("detail", "Detail", 200),
+                ("remediation", "Remediation", 350),
             ],
+            height=10,
         )
-        self._summary_output = _make_output(self, height=8)
+        self._tree.bind("<<TreeviewSelect>>", self._on_check_select)
+        self._detail_output = _make_output(self, height=12)
+        self._last_checks: list[object] = []
         self._load()
 
-    def _display(self, report: DiagnosticReport) -> None:
-        from pathkeeper.core.diagnostics import doctor_recommendations
-
-        self._populate_tree(report)
-        s = report.summary
-        recs = doctor_recommendations(report)
-        text = (
-            f"Entries: {s.total}  Valid: {s.valid}  Invalid: {s.invalid}  "
-            f"Duplicates: {s.duplicates}  Empty: {s.empty}\n\n"
-            f"Recommendations:\n" + "\n".join(f"  - {r}" for r in recs)
+    def _load(self) -> None:
+        scope_str = self._scope_var.get()
+        self._status.set(f"Running doctor ({scope_str})...")
+        self._runner.run(
+            self._fetch,
+            args=(scope_str,),
+            on_success=self._display,
+            on_error=self._on_error,
         )
-        if s.warnings:
-            text += "\n\nWarnings:\n" + "\n".join(f"  ! {w}" for w in s.warnings)
-        _output_set(self._summary_output, text)
+
+    @staticmethod
+    def _fetch(scope_str: str) -> tuple[DiagnosticReport, list[object]]:
+        from pathkeeper.core.diagnostics import doctor_checks
+        from pathkeeper.services import read_current_report
+
+        _snap, report = read_current_report(Scope.from_value(scope_str))
+        checks = doctor_checks(report)
+        return report, list(checks)
+
+    def _display(self, result: tuple[DiagnosticReport, list[object]]) -> None:
+        from pathkeeper.core.diagnostics import DoctorCheck
+
+        report, checks_raw = result
+        checks: list[DoctorCheck] = checks_raw  # type: ignore[assignment]
+        self._last_checks = checks_raw
+        for item in self._tree.get_children():
+            self._tree.delete(item)
+        issue_count = 0
+        for check in checks:
+            if check.status == "pass":
+                tag = "ok"
+                marker = "PASS"
+            elif check.status == "warn":
+                tag = "warn"
+                marker = "WARN"
+                issue_count += len(check.affected) if check.affected else 1
+            else:
+                tag = "error"
+                marker = "FAIL"
+                issue_count += len(check.affected) if check.affected else 1
+            self._tree.insert(
+                "",
+                tk.END,
+                values=(marker, check.name, check.detail, check.remediation),
+                tags=(tag,),
+            )
+        s = report.summary
+        if issue_count == 0:
+            overall = f"Overall: healthy  ({s.total} entries checked)"
+        else:
+            label = "issue" if issue_count == 1 else "issues"
+            overall = (
+                f"Overall: needs attention  ({issue_count} {label}, "
+                f"{s.total} entries checked)"
+            )
+        _output_set(self._detail_output, overall)
         self._status.set("Doctor complete")
+
+    def _on_check_select(self, _event: object) -> None:
+        from pathkeeper.core.diagnostics import DoctorCheck, explain_entry
+
+        sel = self._tree.selection()
+        if not sel:
+            return
+        idx = self._tree.index(sel[0])
+        checks: list[DoctorCheck] = self._last_checks  # type: ignore[assignment]
+        if idx >= len(checks):
+            return
+        check = checks[idx]
+        if not check.affected:
+            _output_set(self._detail_output, f"{check.name}: {check.detail}")
+            return
+        lines: list[str] = [f"{check.name}: {check.detail}"]
+        if check.remediation:
+            lines.append(f"  -> {check.remediation}")
+        lines.append("")
+        lines.append("Affected entries:")
+        for entry in check.affected:
+            scope_label = f"({entry.scope.value})"
+            dup = f" dup-of #{entry.duplicate_of}" if entry.duplicate_of else ""
+            lines.append(f"  #{entry.index} {scope_label} {entry.value}{dup}")
+            lines.append(f"    {explain_entry(entry, 'linux')}")
+        _output_set(self._detail_output, "\n".join(lines))
+
+    def _on_error(self, exc: Exception) -> None:
+        _output_set(self._detail_output, f"Error: {exc}")
+        self._status.set(f"Error: {exc}")
 
 
 def _entry_display(entry: DiagnosticEntry) -> tuple[str, str, str]:
@@ -601,6 +677,8 @@ def _entry_display(entry: DiagnosticEntry) -> tuple[str, str, str]:
         return "dim", "!", "empty"
     if entry.is_duplicate and entry.duplicate_of is not None:
         return "warn", "D", f"duplicate of #{entry.duplicate_of}"
+    if entry.likely_missing_separator:
+        return "warn", "!!", "likely missing separator"
     if not entry.exists:
         return "error", "x", "missing"
     if not entry.is_dir:
@@ -1475,6 +1553,260 @@ class SchedulePanel(_BasePanel):
     def _display(self, text: str) -> None:
         _output_set(self._output, text)
         self._status.set("Schedule checked")
+
+    def _on_error(self, exc: Exception) -> None:
+        _output_set(self._output, f"Error: {exc}")
+        self._status.set(f"Error: {exc}")
+
+
+# ── Shadows ──────────────────────────────────────────────────────
+class ShadowPanel(_BasePanel):
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
+        super().__init__(parent, runner, status_var)
+        tk.Label(
+            self,
+            text="Executable Shadows",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
+        self._scope_var = _make_scope_selector(self, command=self._scan)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Scan", self._scan)
+
+        self._tree = _make_tree(
+            self,
+            [
+                ("name", "Executable", 150),
+                ("rank", "Rank", 60),
+                ("scope", "Scope", 70),
+                ("directory", "Directory", 500),
+            ],
+        )
+        self._output = _make_output(self, height=4)
+        self._scan()
+
+    def _scan(self) -> None:
+        scope_str = self._scope_var.get()
+        self._status.set("Scanning for shadows...")
+        self._runner.run(
+            self._fetch,
+            args=(scope_str,),
+            on_success=self._display,
+            on_error=self._on_error,
+        )
+
+    @staticmethod
+    def _fetch(scope_str: str) -> list[tuple[str, str, str, str]]:
+        from pathkeeper.services import find_shadows_report
+
+        _snap, groups = find_shadows_report(Scope.from_value(scope_str))
+        rows: list[tuple[str, str, str, str]] = []
+        for g in groups:
+            for i, e in enumerate(g.entries):
+                rank = "winner" if i == 0 else "shadow"
+                rows.append((g.name, rank, e.scope.value, e.directory))
+        return rows
+
+    def _display(self, rows: list[tuple[str, str, str, str]]) -> None:
+        for child in self._tree.get_children():
+            self._tree.delete(child)
+        for name, rank, scope, directory in rows:
+            tag = "ok" if rank == "winner" else "warn"
+            self._tree.insert(
+                "", tk.END, values=(name, rank, scope, directory), tags=(tag,)
+            )
+        shadow_count = sum(1 for _, r, _, _ in rows if r == "shadow")
+        names = {n for n, r, _, _ in rows if r == "shadow"}
+        msg = (
+            f"{len(names)} shadowed executable(s), {shadow_count} shadow entries"
+            if names
+            else "No shadowed executables found"
+        )
+        _output_set(self._output, msg)
+        self._status.set(msg)
+
+    def _on_error(self, exc: Exception) -> None:
+        _output_set(self._output, f"Error: {exc}")
+        self._status.set(f"Error: {exc}")
+
+
+# ── Diff vs Current ──────────────────────────────────────────────
+class DiffCurrentPanel(_BasePanel):
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
+        super().__init__(parent, runner, status_var)
+        tk.Label(
+            self,
+            text="Diff Backup vs Current",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
+
+        self._scope_var = _make_scope_selector(self)
+
+        # Backup selector row
+        sel_frame = tk.Frame(self, bg=_CLR_BG)
+        sel_frame.pack(fill=tk.X, padx=8, pady=4)
+        tk.Label(
+            sel_frame, text="Backup:", fg=_CLR_FG, bg=_CLR_BG, font=("Segoe UI", 10)
+        ).pack(side=tk.LEFT)
+        self._backup_var = tk.StringVar()
+        self._backup_combo = ttk.Combobox(
+            sel_frame, textvariable=self._backup_var, width=50, state="readonly"
+        )
+        self._backup_combo.pack(side=tk.LEFT, padx=8)
+
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Refresh Backups", self._load_backups)
+        _toolbar_btn(toolbar, "Compare", self._compare)
+
+        self._output = _make_output(self, height=20)
+        self._backup_names: list[str] = []
+        self._load_backups()
+
+    def _load_backups(self) -> None:
+        self._status.set("Loading backups...")
+        self._runner.run(
+            self._fetch_backups,
+            on_success=self._populate_combo,
+            on_error=self._on_error,
+        )
+
+    @staticmethod
+    def _fetch_backups() -> list[str]:
+        from pathkeeper.services import format_backup_timestamp_utc, recent_backups
+
+        records = recent_backups(limit=50)
+        return [
+            f"{i}  {r.source_file.name if r.source_file else '<unsaved>'}  "
+            f"{format_backup_timestamp_utc(r.timestamp)}"
+            for i, r in enumerate(records, 1)
+        ]
+
+    def _populate_combo(self, names: list[str]) -> None:
+        self._backup_names = names
+        self._backup_combo["values"] = names
+        if names:
+            self._backup_combo.current(0)
+        self._status.set(f"{len(names)} backup(s) available")
+
+    def _compare(self) -> None:
+        if not self._backup_names:
+            messagebox.showwarning("No backups", "No backups available to compare.")
+            return
+        selection = self._backup_var.get()
+        if not selection:
+            return
+        # Extract the number at the beginning
+        identifier = selection.split()[0]
+        scope_str = self._scope_var.get()
+        self._status.set("Comparing...")
+        self._runner.run(
+            self._do_compare,
+            args=(identifier, scope_str),
+            on_success=self._show_result,
+            on_error=self._on_error,
+        )
+
+    @staticmethod
+    def _do_compare(identifier: str, scope_str: str) -> str:
+        from pathkeeper.services import diff_backup_vs_current
+
+        scope = Scope.from_value(scope_str)
+        name, sys_text, usr_text = diff_backup_vs_current(identifier, scope)
+        lines = [f"Backup: {name}  ->  Current PATH\n"]
+        if sys_text:
+            lines.append("System PATH:")
+            lines.append(sys_text)
+            lines.append("")
+        if usr_text:
+            lines.append("User PATH:")
+            lines.append(usr_text)
+        return "\n".join(lines)
+
+    def _show_result(self, text: str) -> None:
+        _output_set(self._output, text)
+        self._status.set("Comparison complete")
+
+    def _on_error(self, exc: Exception) -> None:
+        _output_set(self._output, f"Error: {exc}")
+        self._status.set(f"Error: {exc}")
+
+
+# ── Runtime Entries ──────────────────────────────────────────────
+class RuntimeEntriesPanel(_BasePanel):
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
+        super().__init__(parent, runner, status_var)
+        tk.Label(
+            self,
+            text="Runtime PATH Entries",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Entries injected at runtime (not from registry / rc files)",
+            font=("Segoe UI", 10),
+            fg=_CLR_DIM,
+            bg=_CLR_BG,
+        ).pack(pady=(0, 4))
+
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Scan", self._scan)
+
+        self._tree = _make_tree(
+            self,
+            [
+                ("status", "Source", 90),
+                ("scope", "Scope", 70),
+                ("path", "Path", 600),
+            ],
+        )
+        self._output = _make_output(self, height=4)
+        self._scan()
+
+    def _scan(self) -> None:
+        self._status.set("Scanning for runtime entries...")
+        self._runner.run(self._fetch, on_success=self._display, on_error=self._on_error)
+
+    @staticmethod
+    def _fetch() -> list[tuple[str, str, str]]:
+        from pathkeeper.services import detect_runtime_path_entries
+
+        entries = detect_runtime_path_entries()
+        return [
+            (
+                "persisted" if e.persisted else "runtime",
+                e.scope.value if e.scope else "-",
+                e.value,
+            )
+            for e in entries
+        ]
+
+    def _display(self, rows: list[tuple[str, str, str]]) -> None:
+        for child in self._tree.get_children():
+            self._tree.delete(child)
+        runtime_count = 0
+        for status, scope, path in rows:
+            tag = "ok" if status == "persisted" else "warn"
+            self._tree.insert("", tk.END, values=(status, scope, path), tags=(tag,))
+            if status == "runtime":
+                runtime_count += 1
+        msg = (
+            f"{runtime_count} runtime-only entry/entries detected"
+            if runtime_count
+            else "All entries match the persisted PATH"
+        )
+        _output_set(self._output, msg)
+        self._status.set(msg)
 
     def _on_error(self, exc: Exception) -> None:
         _output_set(self._output, f"Error: {exc}")
