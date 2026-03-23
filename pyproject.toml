@@ -82,6 +82,12 @@ disallow_untyped_calls = false
 module = ["pytable_formatter"]
 ignore_missing_imports = true
 
+# windll only exists on Windows — the type: ignore[attr-defined] comments in
+# this file are required on Linux/macOS CI but flagged as unused on Windows.
+[[tool.mypy.overrides]]
+module = "pathkeeper.platform.windows"
+warn_unused_ignores = false
+
 [tool.ruff]
 line-length = 88
 target-version = "py313"

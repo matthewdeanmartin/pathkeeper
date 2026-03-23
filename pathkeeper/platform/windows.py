@@ -103,10 +103,9 @@ class WindowsPlatform:
         if os.name != "nt":
             return
         try:
-            # Access windll via getattr — it only exists on Windows, so a
-            # direct attribute reference makes mypy fail on Linux/macOS.
-            windll = getattr(ctypes, "windll")
-            is_admin = bool(windll.shell32.IsUserAnAdmin())
+            # windll only exists on Windows; suppress mypy on Linux/macOS
+            # where this branch is unreachable (guarded by os.name check).
+            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())  # type: ignore[attr-defined]
         except (AttributeError, OSError) as error:
             raise PermissionDeniedError(
                 "Unable to determine whether the system PATH is writable. "
@@ -121,10 +120,9 @@ class WindowsPlatform:
     def _broadcast_change(self) -> None:
         if os.name != "nt":
             return
-        # Access windll via getattr — it only exists on Windows, so a
-        # direct attribute reference makes mypy fail on Linux/macOS.
-        windll = getattr(ctypes, "windll")
-        send_message_timeout = windll.user32.SendMessageTimeoutW
+        # windll only exists on Windows; suppress mypy on Linux/macOS
+        # where this branch is unreachable (guarded by os.name check).
+        send_message_timeout = ctypes.windll.user32.SendMessageTimeoutW  # type: ignore[attr-defined]
         send_message_timeout(
             HWND_BROADCAST,
             WM_SETTINGCHANGE,
