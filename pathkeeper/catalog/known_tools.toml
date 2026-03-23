@@ -7,6 +7,7 @@
 name = "Python"
 category = "Programming Languages"
 os = "windows"
+executables = ["python", "python3"]
 patterns = [
   "C:\\Python3*",
   "C:\\Python3*\\Scripts",
@@ -24,6 +25,7 @@ patterns = [
 name = "Node.js"
 category = "Programming Languages"
 os = "all"
+executables = ["node"]
 patterns = [
   "%ProgramFiles%\\nodejs",
   "%ProgramFiles(x86)%\\nodejs",
@@ -39,6 +41,7 @@ patterns = [
 name = "Go"
 category = "Programming Languages"
 os = "all"
+executables = ["go"]
 patterns = [
   "%ProgramFiles%\\Go\\bin",
   "%ProgramW6432%\\Go\\bin",
@@ -55,6 +58,7 @@ patterns = [
 name = "Rust"
 category = "Programming Languages"
 os = "all"
+executables = ["cargo", "rustc"]
 patterns = [
   "%USERPROFILE%\\.cargo\\bin",
   "$HOME/.cargo/bin",
@@ -64,6 +68,7 @@ patterns = [
 name = "Ruby"
 category = "Programming Languages"
 os = "all"
+executables = ["ruby"]
 patterns = [
   "C:\\Ruby*\\bin",
   # RubyInstaller with DevKit
@@ -78,6 +83,7 @@ patterns = [
 name = "Java"
 category = "Programming Languages"
 os = "all"
+executables = ["java", "javac"]
 patterns = [
   "%ProgramFiles%\\Java\\*\\bin",
   "%ProgramFiles%\\Eclipse Adoptium\\*\\bin",
@@ -94,6 +100,7 @@ patterns = [
 name = ".NET"
 category = "Programming Languages"
 os = "all"
+executables = ["dotnet"]
 patterns = [
   "%ProgramFiles%\\dotnet",
   "%ProgramFiles(x86)%\\dotnet",
@@ -216,6 +223,7 @@ patterns = [
 name = "Git"
 category = "Developer Tools"
 os = "all"
+executables = ["git"]
 patterns = [
   "%ProgramFiles%\\Git\\cmd",
   "%ProgramFiles%\\Git\\bin",
@@ -230,6 +238,7 @@ patterns = [
 name = "GitHub CLI"
 category = "Developer Tools"
 os = "all"
+executables = ["gh"]
 patterns = [
   "%ProgramFiles%\\GitHub CLI",
   "%USERPROFILE%\\scoop\\apps\\gh\\current\\bin",
@@ -241,6 +250,7 @@ patterns = [
 name = "Docker"
 category = "Developer Tools"
 os = "all"
+executables = ["docker"]
 patterns = [
   "%ProgramFiles%\\Docker\\Docker\\resources\\bin",
   "%ProgramFiles%\\Docker\\Docker\\resources",
@@ -297,6 +307,7 @@ patterns = [
 name = "VS Code"
 category = "Developer Tools"
 os = "all"
+executables = ["code"]
 patterns = [
   "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\bin",
   "%ProgramFiles%\\Microsoft VS Code\\bin",
@@ -385,6 +396,7 @@ patterns = [
 name = "Flutter"
 category = "Developer Tools"
 os = "all"
+executables = ["flutter"]
 patterns = [
   "%LOCALAPPDATA%\\Programs\\flutter\\bin",
   "C:\\flutter\\bin",
@@ -401,6 +413,7 @@ patterns = [
 name = "AWS CLI"
 category = "Cloud & DevOps"
 os = "all"
+executables = ["aws"]
 patterns = [
   "%ProgramFiles%\\Amazon\\AWSCLIV2",
   "%LOCALAPPDATA%\\Programs\\Python\\Python3*\\Scripts",
@@ -412,6 +425,7 @@ patterns = [
 name = "Azure CLI"
 category = "Cloud & DevOps"
 os = "all"
+executables = ["az"]
 patterns = [
   "%ProgramFiles%\\Microsoft SDKs\\Azure\\CLI2\\wbin",
   "%ProgramFiles(x86)%\\Microsoft SDKs\\Azure\\CLI2\\wbin",
@@ -423,6 +437,7 @@ patterns = [
 name = "Google Cloud CLI"
 category = "Cloud & DevOps"
 os = "all"
+executables = ["gcloud"]
 patterns = [
   "%LOCALAPPDATA%\\Google\\Cloud SDK\\google-cloud-sdk\\bin",
   "%ProgramFiles%\\Google\\Cloud SDK\\google-cloud-sdk\\bin",
@@ -434,6 +449,7 @@ patterns = [
 name = "Pulumi"
 category = "Cloud & DevOps"
 os = "all"
+executables = ["pulumi"]
 patterns = [
   "%USERPROFILE%\\.pulumi\\bin",
   "$HOME/.pulumi/bin",
@@ -447,6 +463,7 @@ patterns = [
 name = "PostgreSQL"
 category = "Databases"
 os = "all"
+executables = ["psql"]
 patterns = [
   "%ProgramFiles%\\PostgreSQL\\*\\bin",
   # Scoop
@@ -460,6 +477,7 @@ patterns = [
 name = "MySQL"
 category = "Databases"
 os = "all"
+executables = ["mysql"]
 patterns = [
   "%ProgramFiles%\\MySQL\\MySQL Server *\\bin",
   "%USERPROFILE%\\scoop\\apps\\mysql\\current\\bin",
@@ -589,6 +607,7 @@ patterns = [
 name = "Maven"
 category = "Build Tools"
 os = "all"
+executables = ["mvn"]
 patterns = [
   "%ProgramFiles%\\Apache\\maven\\bin",
   "%USERPROFILE%\\scoop\\apps\\maven\\current\\bin",
@@ -600,6 +619,7 @@ patterns = [
 name = "Gradle"
 category = "Build Tools"
 os = "all"
+executables = ["gradle"]
 patterns = [
   "%USERPROFILE%\\.gradle\\bin",
   "%USERPROFILE%\\scoop\\apps\\gradle\\current\\bin",

@@ -17,13 +17,14 @@ def dedupe_entries(
     *,
     keep: str = "first",
     remove_invalid: bool = True,
+    pre_seen: set[str] | None = None,
 ) -> CleanupResult:
     if keep not in {"first", "last"}:
         raise ValueError("keep must be 'first' or 'last'")
     working = list(entries)
     if keep == "last":
         working.reverse()
-    seen: set[str] = set()
+    seen: set[str] = set(pre_seen) if pre_seen else set()
     kept: list[str] = []
     removed_duplicates: list[str] = []
     removed_invalid: list[str] = []

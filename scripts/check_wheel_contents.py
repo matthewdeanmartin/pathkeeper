@@ -1,8 +1,8 @@
 """Verify that expected files are present in the built wheel and sdist."""
 
 import sys
-import zipfile
 import tarfile
+import zipfile
 from pathlib import Path
 
 REQUIRED_WHEEL_PATHS = [

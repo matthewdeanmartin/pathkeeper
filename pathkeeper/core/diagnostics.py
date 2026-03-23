@@ -42,7 +42,7 @@ def canonicalize_entry(entry: str, os_name: str) -> str:
     value = expand_entry(entry)
     if os_name == "windows":
         normalized = value.replace("/", "\\").rstrip("\\").strip('"')
-        return normalized.casefold()
+        return normalized.casefold().strip()
     normalized = value.rstrip("/")
     if os_name == "darwin":
         return normalized.casefold()
@@ -56,6 +56,8 @@ def _analyze_group(
     start_index: int,
     seen: dict[str, int],
 ) -> list[DiagnosticEntry]:
+    from pathkeeper.core.executables import list_executables
+
     results: list[DiagnosticEntry] = []
     for offset, entry in enumerate(entries):
         expanded = expand_entry(entry)
@@ -67,6 +69,7 @@ def _analyze_group(
         duplicate_of = seen.get(canonical)
         if canonical and duplicate_of is None:
             seen[canonical] = start_index + offset
+        exes = list_executables(expanded, os_name) if (is_dir and not is_empty) else []
         results.append(
             DiagnosticEntry(
                 index=start_index + offset,
@@ -79,6 +82,7 @@ def _analyze_group(
                 is_empty=is_empty,
                 has_unexpanded_vars=has_unexpanded_variables(entry, os_name),
                 expanded_value=expanded,
+                executables=exes,
             )
         )
     return results

@@ -294,7 +294,12 @@ def _output_set(text_widget: tk.Text, content: str) -> None:
     text_widget.configure(state=tk.DISABLED)
 
 
-def _make_scope_selector(parent: tk.Misc, *, default: str = "all") -> tk.StringVar:
+def _make_scope_selector(
+    parent: tk.Misc,
+    *,
+    default: str = "all",
+    command: object = None,
+) -> tk.StringVar:
     """Row of radio buttons for scope selection."""
     var = tk.StringVar(value=default)
     frame = tk.Frame(parent, bg=_CLR_BG)
@@ -314,6 +319,7 @@ def _make_scope_selector(parent: tk.Misc, *, default: str = "all") -> tk.StringV
             activebackground=_CLR_BG,
             activeforeground=_CLR_FG,
             font=("Segoe UI", 10),
+            command=command,  # type: ignore[arg-type]
         ).pack(side=tk.LEFT, padx=4)
     return var
 
@@ -462,7 +468,7 @@ class InspectPanel(_BasePanel):
             fg=_CLR_ACCENT,
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
-        self._scope_var = _make_scope_selector(self)
+        self._scope_var = _make_scope_selector(self, command=self._load)
         toolbar = _make_toolbar(self)
         _toolbar_btn(toolbar, "Run", self._load)
 
@@ -472,11 +478,12 @@ class InspectPanel(_BasePanel):
                 ("idx", "#", 40),
                 ("status", "Status", 60),
                 ("scope", "Scope", 70),
-                ("path", "Path", 520),
-                ("notes", "Notes", 240),
+                ("path", "Path", 420),
+                ("executables", "Executables", 200),
+                ("notes", "Notes", 160),
             ],
         )
-        self._summary_output = _make_output(self, height=4)
+        self._summary_output = _make_output(self, height=7)
         self._load()
 
     def _load(self) -> None:
@@ -514,6 +521,11 @@ class InspectPanel(_BasePanel):
             self._tree.delete(item)
         for entry in report.entries:
             tag, marker, notes = _entry_display(entry)
+            exe_str = (
+                _format_executables(entry.executables)
+                if (entry.is_dir and not entry.is_duplicate)
+                else ""
+            )
             self._tree.insert(
                 "",
                 tk.END,
@@ -522,6 +534,7 @@ class InspectPanel(_BasePanel):
                     marker,
                     entry.scope.value,
                     entry.value,
+                    exe_str,
                     notes,
                 ),
                 tags=(tag,),
@@ -547,7 +560,7 @@ class DoctorPanel(InspectPanel):
             fg=_CLR_ACCENT,
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
-        self._scope_var = _make_scope_selector(self)
+        self._scope_var = _make_scope_selector(self, command=self._load)
         toolbar = _make_toolbar(self)
         _toolbar_btn(toolbar, "Diagnose", self._load)
 
@@ -557,11 +570,12 @@ class DoctorPanel(InspectPanel):
                 ("idx", "#", 40),
                 ("status", "Status", 60),
                 ("scope", "Scope", 70),
-                ("path", "Path", 520),
-                ("notes", "Notes", 240),
+                ("path", "Path", 420),
+                ("executables", "Executables", 200),
+                ("notes", "Notes", 160),
             ],
         )
-        self._summary_output = _make_output(self, height=6)
+        self._summary_output = _make_output(self, height=8)
         self._load()
 
     def _display(self, report: DiagnosticReport) -> None:
@@ -592,6 +606,15 @@ def _entry_display(entry: DiagnosticEntry) -> tuple[str, str, str]:
     if not entry.is_dir:
         return "error", "~", "file, not directory"
     return "ok", "ok", ""
+
+
+def _format_executables(names: list[str], *, limit: int = 10) -> str:
+    """Format a list of executable names for display in the GUI tree."""
+    if not names:
+        return ""
+    shown = names[:limit]
+    suffix = ", …" if len(names) > limit else ""
+    return ", ".join(shown) + suffix
 
 
 # ── Backups ───────────────────────────────────────────────────────
@@ -644,8 +667,9 @@ class BackupPanel(_BasePanel):
                 ("usr", "Usr", 45),
                 ("note", "Note", 200),
             ],
+            height=12,
         )
-        self._detail_output = _make_output(self, height=8)
+        self._detail_output = _make_output(self, height=14)
         self._load_list()
 
     def _load_list(self) -> None:
@@ -820,7 +844,9 @@ class EditPanel(_BasePanel):
             fg=_CLR_ACCENT,
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
-        self._scope_var = _make_scope_selector(self, default="user")
+        self._scope_var = _make_scope_selector(
+            self, default="user", command=self._load_session
+        )
 
         toolbar = _make_toolbar(self)
         _toolbar_btn(toolbar, "Load", self._load_session)
@@ -1072,11 +1098,12 @@ class DedupePanel(_BasePanel):
             fg=_CLR_ACCENT,
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
-        self._scope_var = _make_scope_selector(self)
+        self._scope_var = _make_scope_selector(self, command=self._preview)
         toolbar = _make_toolbar(self)
         _toolbar_btn(toolbar, "Preview", self._preview)
         _toolbar_btn(toolbar, "Apply", self._apply)
         self._output = _make_output(self, height=20)
+        self._preview()
 
     def _preview(self) -> None:
         scope_str = self._scope_var.get()
@@ -1105,21 +1132,60 @@ class DedupePanel(_BasePanel):
     @staticmethod
     def _compute(scope_str: str) -> str:
         from pathkeeper.core.dedupe import dedupe_entries
+        from pathkeeper.core.diagnostics import canonicalize_entry
         from pathkeeper.core.diff import compute_diff, render_diff
         from pathkeeper.services import get_snapshot_and_adapter
 
         snapshot, _adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         lines: list[str] = []
+        has_changes = False
+        sys_res = None
         if scope in (Scope.SYSTEM, Scope.ALL):
-            res = dedupe_entries(snapshot.system_path, os_name)
+            sys_res = dedupe_entries(snapshot.system_path, os_name)
+            diff_text = render_diff(
+                compute_diff(sys_res.original, sys_res.cleaned, os_name)
+            )
             lines.append("System PATH:")
-            lines.append(render_diff(compute_diff(res.original, res.cleaned, os_name)))
+            lines.append(diff_text)
             lines.append("")
+            if sys_res.original != sys_res.cleaned:
+                has_changes = True
         if scope in (Scope.USER, Scope.ALL):
-            res = dedupe_entries(snapshot.user_path, os_name)
-            lines.append("User PATH:")
-            lines.append(render_diff(compute_diff(res.original, res.cleaned, os_name)))
+            # First pass: dedup within user PATH only (intra-scope duplicates)
+            usr_intra = dedupe_entries(snapshot.user_path, os_name)
+            # Second pass: also remove user entries already present in system PATH
+            pre_seen = (
+                {canonicalize_entry(e, os_name) for e in sys_res.cleaned}
+                if sys_res is not None
+                else None
+            )
+            usr_res = dedupe_entries(snapshot.user_path, os_name, pre_seen=pre_seen)
+
+            # Separate the two kinds of removal for clarity in the display
+            intra_removed = set(
+                usr_intra.removed_duplicates
+                + usr_intra.removed_invalid
+                + usr_intra.removed_empty
+            )
+            cross_scope_removed = [
+                e for e in usr_res.removed_duplicates if e not in intra_removed
+            ]
+
+            lines.append("User PATH (within-scope duplicates & invalid):")
+            lines.append(
+                render_diff(
+                    compute_diff(usr_intra.original, usr_intra.cleaned, os_name)
+                )
+            )
+            if cross_scope_removed:
+                lines.append("")
+                lines.append("User PATH (entries already in System PATH — redundant):")
+                lines.extend(f"  - {e}" for e in cross_scope_removed)
+            if usr_res.original != usr_res.cleaned:
+                has_changes = True
+        if not has_changes:
+            return "No duplicates or invalid entries found. PATH looks clean!"
         return "\n".join(lines)
 
     @staticmethod
@@ -1178,7 +1244,9 @@ class PopulatePanel(_BasePanel):
             fg=_CLR_ACCENT,
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
-        self._scope_var = _make_scope_selector(self, default="user")
+        self._scope_var = _make_scope_selector(
+            self, default="user", command=self._discover
+        )
         toolbar = _make_toolbar(self)
         _toolbar_btn(toolbar, "Discover", self._discover)
         _toolbar_btn(toolbar, "Add Selected", self._add_selected)
@@ -1186,19 +1254,21 @@ class PopulatePanel(_BasePanel):
         self._tree = _make_tree(
             self,
             [
-                ("cat", "Category", 120),
-                ("name", "Tool", 150),
-                ("path", "Path", 500),
+                ("cat", "Category", 110),
+                ("name", "Tool", 120),
+                ("path", "Path", 340),
+                ("executables", "Executables", 240),
             ],
         )
         self._output = _make_output(self, height=4)
+        self._discover()
 
     def _discover(self) -> None:
         self._status.set("Discovering tools...")
         self._runner.run(self._fetch, on_success=self._display, on_error=self._on_error)
 
     @staticmethod
-    def _fetch() -> list[tuple[str, str, str]]:
+    def _fetch() -> list[tuple[str, str, str, str]]:
         from pathkeeper.config import load_config
         from pathkeeper.core.populate import discover_tools, load_catalog
         from pathkeeper.services import get_snapshot_and_adapter
@@ -1208,13 +1278,16 @@ class PopulatePanel(_BasePanel):
         catalog = load_catalog(config)
         existing = snapshot.entries_for_scope(Scope.ALL)
         matches = discover_tools(catalog, existing, os_name=os_name)
-        return [(m.category, m.name, m.path) for m in matches]
+        return [
+            (m.category, m.name, m.path, _format_executables(m.found_executables))
+            for m in matches
+        ]
 
-    def _display(self, items: list[tuple[str, str, str]]) -> None:
+    def _display(self, items: list[tuple[str, str, str, str]]) -> None:
         for child in self._tree.get_children():
             self._tree.delete(child)
-        for cat, name, path in items:
-            self._tree.insert("", tk.END, values=(cat, name, path))
+        for cat, name, path, exes in items:
+            self._tree.insert("", tk.END, values=(cat, name, path, exes))
         msg = (
             f"{len(items)} tool path(s) found"
             if items

@@ -407,8 +407,13 @@ def _print_diagnostics(args: argparse.Namespace) -> int:
             is_file=entry.exists and not entry.is_dir,
         )
         scope_label = t.dim(f"({entry.scope.value})")
+        exe_hint = ""
+        if entry.executables and entry.is_dir and not entry.is_duplicate:
+            names = ", ".join(entry.executables[:8])
+            suffix = ", …" if len(entry.executables) > 8 else ""
+            exe_hint = t.dim(f"  [{names}{suffix}]")
         print(
-            f"{t.dim(f'{entry.index:>3}.')} {colored_marker} {scope_label} {colored_value}{duplicate}{arrow}"
+            f"{t.dim(f'{entry.index:>3}.')} {colored_marker} {scope_label} {colored_value}{duplicate}{arrow}{exe_hint}"
         )
         if explain and not (
             entry.exists
@@ -778,6 +783,8 @@ def _dedupe(args: argparse.Namespace) -> int:
     snapshot = read_snapshot(adapter)
     scope = _scope(args.scope)
     os_name = normalized_os_name()
+    from pathkeeper.core.diagnostics import canonicalize_entry
+
     if scope is Scope.ALL:
         system_result = dedupe_entries(
             snapshot.system_path,
@@ -785,11 +792,16 @@ def _dedupe(args: argparse.Namespace) -> int:
             keep=args.keep,
             remove_invalid=args.remove_invalid,
         )
+        # Pre-seed user dedup with canonicals from the cleaned system entries so
+        # cross-scope duplicates (same path in both system and user) are removed
+        # from the user section (system entries take precedence).
+        system_seen = {canonicalize_entry(e, os_name) for e in system_result.cleaned}
         user_result = dedupe_entries(
             snapshot.user_path,
             os_name,
             keep=args.keep,
             remove_invalid=args.remove_invalid,
+            pre_seen=system_seen,
         )
         system_diff = render_diff(
             compute_diff(system_result.original, system_result.cleaned, os_name)
@@ -801,6 +813,13 @@ def _dedupe(args: argparse.Namespace) -> int:
         print(system_diff)
         print(t.bold("\nUser diff:"))
         print(user_diff)
+        has_changes = (
+            system_result.original != system_result.cleaned
+            or user_result.original != user_result.cleaned
+        )
+        if not has_changes:
+            print(t.ok("No duplicates found. Nothing to do."))
+            return 0
         if args.dry_run:
             return 0
         updated = PathSnapshot(
@@ -821,6 +840,9 @@ def _dedupe(args: argparse.Namespace) -> int:
         original, os_name, keep=args.keep, remove_invalid=args.remove_invalid
     )
     print(render_diff(compute_diff(result.original, result.cleaned, os_name)))
+    if result.original == result.cleaned:
+        print(t.ok("No duplicates found. Nothing to do."))
+        return 0
     if args.dry_run:
         return 0
     updated = _snapshot_with_scope(snapshot, scope, result.cleaned, os_name)
@@ -849,8 +871,13 @@ def _populate_select_interactive(
         items = grouped[cat]
         print(t.category(f"  {cat}"))
         for i, item in enumerate(items, 1):
+            exe_hint = ""
+            if item.found_executables:
+                names = ", ".join(item.found_executables[:8])
+                suffix = ", …" if len(item.found_executables) > 8 else ""
+                exe_hint = t.dim(f"  [{names}{suffix}]")
             print(
-                f"    {t.dim(str(i) + '.')} {t.accent(item.path)}  {t.dim('(' + item.name + ')')}"
+                f"    {t.dim(str(i) + '.')} {t.accent(item.path)}  {t.dim('(' + item.name + ')')}{exe_hint}"
             )
         print(hint)
         while True:
@@ -914,8 +941,13 @@ def _populate(args: argparse.Namespace) -> int:
     for cat, items in grouped.items():
         print(t.category(cat))
         for item in items:
+            exe_hint = ""
+            if item.found_executables:
+                names = ", ".join(item.found_executables[:8])
+                suffix = ", …" if len(item.found_executables) > 8 else ""
+                exe_hint = t.dim(f"  [{names}{suffix}]")
             print(
-                f"  {t.dim('-')} {t.accent(item.path)} {t.dim('(' + item.name + ')')}"
+                f"  {t.dim('-')} {t.accent(item.path)} {t.dim('(' + item.name + ')')}{exe_hint}"
             )
     if args.dry_run:
         print(t.dry_run("[dry-run] No changes written."))
@@ -1407,6 +1439,22 @@ _SHELL_STARTUP_MARKER = "# pathkeeper backup (added by pathkeeper shell-startup)
 _SHELL_STARTUP_LINE = "pathkeeper backup --quiet --tag auto"
 
 
+def _shell_startup_command() -> str:
+    """Return the shell command to invoke pathkeeper.
+
+    Prefers the installed ``pathkeeper`` script on PATH; falls back to
+    ``python -m pathkeeper`` using the running interpreter so the line works
+    regardless of how the package was installed.
+    """
+    import shutil
+    import sys
+
+    if shutil.which("pathkeeper"):
+        return "pathkeeper"
+    # Absolute path to the interpreter so the line works in non-activated shells.
+    return f'"{sys.executable}" -m pathkeeper'
+
+
 def _detect_shell_rc() -> tuple[str, str] | None:
     """Return (shell_name, rc_file_path) for the running shell, or None."""
     import os as _os
@@ -1454,12 +1502,14 @@ def _shell_startup_rc_for(shell: str | None) -> tuple[str, str]:
 
 
 def _shell_startup_backup_line(shell_name: str) -> str:
+    cmd = _shell_startup_command()
+    line = f"{cmd} backup --quiet --tag auto"
     if shell_name == "fish":
-        return f"{_SHELL_STARTUP_LINE}  # {_SHELL_STARTUP_MARKER}"
+        return f"{line}  # {_SHELL_STARTUP_MARKER}"
     if shell_name in {"bash", "zsh"}:
-        return f"{_SHELL_STARTUP_LINE}  {_SHELL_STARTUP_MARKER}"
+        return f"{line}  {_SHELL_STARTUP_MARKER}"
     # PowerShell
-    return f"{_SHELL_STARTUP_LINE}  <# {_SHELL_STARTUP_MARKER} #>"
+    return f"{line}  <# {_SHELL_STARTUP_MARKER} #>"
 
 
 def _shell_startup_already_present(text: str) -> bool:
