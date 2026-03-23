@@ -5,9 +5,12 @@
 Requires Python 3.12+, `uv`, and `make`.
 
 ```bash
-make sync          # uv sync
-uv run pathkeeper  # smoke test
+make sync                    # uv sync
+uv run pre-commit install    # install the pre-commit hook (once)
+uv run pathkeeper            # smoke test
 ```
+
+The pre-commit hook runs `make check` before every commit — the same gate CI runs.
 
 ## Architecture
 

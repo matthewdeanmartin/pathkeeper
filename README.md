@@ -86,4 +86,3 @@ Run without arguments for the interactive menu:
 ```bash
 uv run pathkeeper
 ```
-

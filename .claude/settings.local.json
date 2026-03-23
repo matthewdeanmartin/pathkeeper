@@ -35,7 +35,8 @@
       "Bash(make makefile-lint:*)",
       "Bash(make --dry-run check)",
       "Bash(pinact run:*)",
-      "Bash(actionlint .github/workflows/lint.yml)"
+      "Bash(actionlint .github/workflows/lint.yml)",
+      "Bash(PYTHONUTF8=1 uv run metametameta sync-check --output __about__.py)"
     ]
   }
 }

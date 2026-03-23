@@ -1,10 +1,12 @@
 ## Notes
+
 - Backups preserve raw PATH strings so restore can round-trip values safely.
 - `pathkeeper backup` skips creating a new backup when the latest saved snapshot has identical PATH content unless you
   pass `--force`.
 - On Unix, `pathkeeper` only rewrites PATH content inside its managed marker block in user rc files.
 
 ### Windows
+
 - In the interactive menu, `Dedupe` now offers a user-scope fallback when system PATH changes need elevation on Windows.
 - If startup-task installation needs elevation, the interactive schedule flow offers a per-user logon task
   fallback.

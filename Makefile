@@ -1,5 +1,6 @@
 UV ?= uv
 MAKEFLAGS += --no-print-directory
+export PYTHONUTF8 := 1
 
 PYTHON_TARGETS := pathkeeper tests
 PYLINT_MAIN_TARGETS := pathkeeper
