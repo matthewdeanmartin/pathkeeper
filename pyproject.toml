@@ -45,6 +45,11 @@ python_version = "3.14"
 strict = true
 packages = ["pathkeeper", "tests"]
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
 [tool.uv]
 default-groups = ["dev"]
 

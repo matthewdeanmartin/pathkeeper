@@ -22,6 +22,7 @@ import subprocess
 import sys
 import time
 import timeit
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -35,7 +36,7 @@ import pytest
 _REPO_ROOT = Path(__file__).parent.parent
 
 
-def _time(fn, *, repeat: int = 5) -> float:
+def _time(fn: "Callable[[], object]", *, repeat: int = 5) -> float:
     """Return median wall time in seconds over `repeat` calls."""
     times = []
     for _ in range(repeat):
@@ -70,7 +71,7 @@ def _measure_import_ms(repeat: int = 5) -> float:
 # Benchmark: in-process backup command
 # ---------------------------------------------------------------------------
 
-def _make_stub_adapter(tmp_path: Path):
+def _make_stub_adapter(tmp_path: Path) -> MagicMock:
     """Return a fake PathReader that satisfies read_snapshot()."""
     adapter = MagicMock()
     adapter.read_system_path.return_value = [r"C:\Windows\System32", r"C:\Windows"]

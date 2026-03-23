@@ -3,7 +3,7 @@ UV ?= uv
 .PHONY: sync test typecheck check run
 
 sync:
-	$(UV) sync --python 3.14
+	$(UV) sync
 
 test:
 	$(UV) run pytest

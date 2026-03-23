@@ -28,6 +28,7 @@ from pathkeeper.platform import get_platform_adapter, normalized_os_name
 
 if TYPE_CHECKING:
     from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot
+    from pathkeeper.core.path_writer import PathWriter
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Snapshot & adapter helpers
 # ------------------------------------------------------------------
 
-def get_snapshot_and_adapter() -> tuple["PathSnapshot", object, str]:
+def get_snapshot_and_adapter() -> "tuple[PathSnapshot, PathWriter, str]":
     """Return (snapshot, platform_adapter, os_name)."""
     config = load_config()
     adapter = get_platform_adapter(config)

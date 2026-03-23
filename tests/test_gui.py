@@ -7,6 +7,8 @@ so no real PATH is read or written.
 from __future__ import annotations
 
 import sys
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
@@ -14,6 +16,9 @@ from pathlib import Path
 
 # Skip the entire module if tkinter is unavailable (headless CI, etc.)
 tk = pytest.importorskip("tkinter")
+
+if TYPE_CHECKING:
+    import tkinter as _tk
 
 
 from pathkeeper.models import (
@@ -29,7 +34,7 @@ from pathkeeper.models import (
 # ── fixtures ──────────────────────────────────────────────────────
 
 @pytest.fixture()
-def root():
+def root() -> Generator[_tk.Tk, None, None]:
     """Create and destroy a Tk root for each test."""
     try:
         r = tk.Tk()
@@ -96,7 +101,7 @@ def _fake_backup(*, tag: str = "manual", note: str = "") -> BackupRecord:
 
 # ── helper tests ──────────────────────────────────────────────────
 
-def test_entry_display_ok():
+def test_entry_display_ok() -> None:
     from pathkeeper.gui.app import _entry_display
     entry = _fake_report().entries[0]  # valid
     tag, marker, notes = _entry_display(entry)
@@ -105,7 +110,7 @@ def test_entry_display_ok():
     assert notes == ""
 
 
-def test_entry_display_missing():
+def test_entry_display_missing() -> None:
     from pathkeeper.gui.app import _entry_display
     entry = _fake_report().entries[2]  # missing
     tag, marker, notes = _entry_display(entry)
@@ -114,7 +119,7 @@ def test_entry_display_missing():
     assert "missing" in notes
 
 
-def test_entry_display_duplicate():
+def test_entry_display_duplicate() -> None:
     from pathkeeper.gui.app import _entry_display
     entry = DiagnosticEntry(
         index=4, value=r"C:\Windows", scope=Scope.SYSTEM,
@@ -128,7 +133,7 @@ def test_entry_display_duplicate():
     assert "#2" in notes
 
 
-def test_entry_display_empty():
+def test_entry_display_empty() -> None:
     from pathkeeper.gui.app import _entry_display
     entry = DiagnosticEntry(
         index=5, value="", scope=Scope.USER,
@@ -144,14 +149,14 @@ def test_entry_display_empty():
 
 # ── widget tests ──────────────────────────────────────────────────
 
-def test_make_tree(root):
+def test_make_tree(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import _make_tree
     parent = tk.Frame(root)
     tree = _make_tree(parent, [("a", "ColA", 100), ("b", "ColB", 200)])
     assert tree.cget("columns") == ("a", "b")
 
 
-def test_make_output(root):
+def test_make_output(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import _make_output, _output_set
     parent = tk.Frame(root)
     text = _make_output(parent, height=5)
@@ -160,7 +165,7 @@ def test_make_output(root):
     assert content == "hello world"
 
 
-def test_make_scope_selector(root):
+def test_make_scope_selector(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import _make_scope_selector
     parent = tk.Frame(root)
     var = _make_scope_selector(parent, default="user")
@@ -171,7 +176,7 @@ def test_make_scope_selector(root):
 
 # ── panel instantiation tests ────────────────────────────────────
 
-def _mock_services():
+def _mock_services() -> dict[str, Any]:
     """Return a dict of patches that mock service calls for panel tests."""
     return {
         "read_current_report": patch(
@@ -189,7 +194,7 @@ def _mock_services():
     }
 
 
-def test_dashboard_panel_creates(root):
+def test_dashboard_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import DashboardPanel, _BackgroundRunner
     patches = _mock_services()
     with patches["read_current_report"], patches["recent_backups"]:
@@ -200,7 +205,7 @@ def test_dashboard_panel_creates(root):
         assert panel.winfo_exists()
 
 
-def test_inspect_panel_creates(root):
+def test_inspect_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import InspectPanel, _BackgroundRunner
     patches = _mock_services()
     with patches["read_current_report"]:
@@ -211,7 +216,7 @@ def test_inspect_panel_creates(root):
         assert panel.winfo_exists()
 
 
-def test_doctor_panel_creates(root):
+def test_doctor_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import DoctorPanel, _BackgroundRunner
     patches = _mock_services()
     with patches["read_current_report"]:
@@ -222,7 +227,7 @@ def test_doctor_panel_creates(root):
         assert panel.winfo_exists()
 
 
-def test_backup_panel_creates(root):
+def test_backup_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import BackupPanel, _BackgroundRunner
     patches = _mock_services()
     with patches["recent_backups"]:
@@ -233,7 +238,7 @@ def test_backup_panel_creates(root):
         assert panel.winfo_exists()
 
 
-def test_edit_panel_creates(root):
+def test_edit_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import EditPanel, _BackgroundRunner
     patches = _mock_services()
     with patches["get_snapshot_and_adapter"]:
@@ -244,7 +249,7 @@ def test_edit_panel_creates(root):
         assert panel.winfo_exists()
 
 
-def test_dedupe_panel_creates(root):
+def test_dedupe_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import DedupePanel, _BackgroundRunner
     runner = _BackgroundRunner(root)
     status = tk.StringVar()
@@ -253,7 +258,7 @@ def test_dedupe_panel_creates(root):
     assert panel.winfo_exists()
 
 
-def test_schedule_panel_creates(root):
+def test_schedule_panel_creates(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import SchedulePanel, _BackgroundRunner
     with patch("pathkeeper.core.schedule.schedule_status") as mock_status:
         mock_status.return_value = MagicMock(enabled=False, detail="")
@@ -266,9 +271,9 @@ def test_schedule_panel_creates(root):
 
 # ── app tests ─────────────────────────────────────────────────────
 
-def test_app_creates(root):
+def test_app_creates(root: _tk.Tk) -> None:
     """Verify PathkeeperApp can be instantiated (uses separate Toplevel)."""
-    from pathkeeper.gui.app import PathkeeperApp, _CLR_BG
+    from pathkeeper.gui.app import PathkeeperApp, _CLR_BG  # noqa: F401
     patches = _mock_services()
     with patches["read_current_report"], patches["recent_backups"]:
         # PathkeeperApp is a Tk subclass; we can't create a second Tk, so
@@ -282,7 +287,7 @@ def test_app_creates(root):
         assert panel.winfo_exists()
 
 
-def test_panel_factory_unknown_defaults_to_dashboard(root):
+def test_panel_factory_unknown_defaults_to_dashboard(root: _tk.Tk) -> None:
     from pathkeeper.gui.app import _build_panel, _BackgroundRunner, DashboardPanel
     patches = _mock_services()
     with patches["read_current_report"], patches["recent_backups"]:
@@ -295,14 +300,14 @@ def test_panel_factory_unknown_defaults_to_dashboard(root):
 
 # ── background runner test ────────────────────────────────────────
 
-def test_background_runner_creates(root):
+def test_background_runner_creates(root: _tk.Tk) -> None:
     """Verify the runner can be instantiated."""
     from pathkeeper.gui.app import _BackgroundRunner
     runner = _BackgroundRunner(root)
     assert runner is not None
 
 
-def test_background_runner_run_calls_func():
+def test_background_runner_run_calls_func() -> None:
     """Test that the runner invokes the function in a thread."""
     import threading
     from unittest.mock import MagicMock
@@ -327,7 +332,7 @@ def test_background_runner_run_calls_func():
     assert results == [42]
 
 
-def test_background_runner_error_calls_handler():
+def test_background_runner_error_calls_handler() -> None:
     """Test that errors are routed to the error handler."""
     from unittest.mock import MagicMock
 
@@ -352,7 +357,7 @@ def test_background_runner_error_calls_handler():
 
 # ── services tests ────────────────────────────────────────────────
 
-def test_services_format_timestamp():
+def test_services_format_timestamp() -> None:
     from pathkeeper.services import format_backup_timestamp_utc
     ts = datetime(2025, 3, 15, 14, 30, 0, tzinfo=timezone.utc)
     assert format_backup_timestamp_utc(ts) == "2025-03-15 14:30Z"

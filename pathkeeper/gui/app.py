@@ -13,6 +13,8 @@ from pathkeeper import __version__
 from pathkeeper.models import Scope
 
 if TYPE_CHECKING:
+    from pathkeeper.core.edit import EditSession
+    from pathkeeper.core.path_writer import PathWriter
     from pathkeeper.models import BackupRecord, DiagnosticEntry, DiagnosticReport, PathSnapshot
 
 
@@ -151,7 +153,7 @@ def _build_panel(
     runner: _BackgroundRunner,
     status_var: tk.StringVar,
 ) -> tk.Frame:
-    builders: dict[str, type] = {
+    builders: dict[str, type[_BasePanel]] = {
         "dashboard": DashboardPanel,
         "inspect": InspectPanel,
         "doctor": DoctorPanel,
@@ -168,7 +170,7 @@ def _build_panel(
 
 # ── helper: scrolled treeview ─────────────────────────────────────
 def _make_tree(
-    parent: tk.Widget,
+    parent: tk.Misc,
     columns: list[tuple[str, str, int]],
     *,
     height: int = 20,
@@ -211,7 +213,7 @@ def _make_tree(
     return tree
 
 
-def _make_output(parent: tk.Widget, *, height: int = 10) -> tk.Text:
+def _make_output(parent: tk.Misc, *, height: int = 10) -> tk.Text:
     """Create a scrolled read-only text widget for output display."""
     frame = tk.Frame(parent, bg=_CLR_BG)
     frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
@@ -232,7 +234,7 @@ def _output_set(text_widget: tk.Text, content: str) -> None:
     text_widget.configure(state=tk.DISABLED)
 
 
-def _make_scope_selector(parent: tk.Widget, *, default: str = "all") -> tk.StringVar:
+def _make_scope_selector(parent: tk.Misc, *, default: str = "all") -> tk.StringVar:
     """Row of radio buttons for scope selection."""
     var = tk.StringVar(value=default)
     frame = tk.Frame(parent, bg=_CLR_BG)
@@ -249,7 +251,7 @@ def _make_scope_selector(parent: tk.Widget, *, default: str = "all") -> tk.Strin
     return var
 
 
-def _make_toolbar(parent: tk.Widget) -> tk.Frame:
+def _make_toolbar(parent: tk.Misc) -> tk.Frame:
     bar = tk.Frame(parent, bg=_CLR_BG)
     bar.pack(fill=tk.X, padx=8, pady=4)
     return bar
@@ -271,7 +273,7 @@ def _toolbar_btn(bar: tk.Frame, text: str, command: object) -> tk.Button:
 # ══════════════════════════════════════════════════════════════════
 
 class _BasePanel(tk.Frame):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, bg=_CLR_BG)
         self._runner = runner
@@ -280,7 +282,7 @@ class _BasePanel(tk.Frame):
 
 # ── Dashboard ─────────────────────────────────────────────────────
 class DashboardPanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="PATH Health Dashboard", font=("Segoe UI", 16, "bold"),
@@ -345,7 +347,7 @@ class DashboardPanel(_BasePanel):
 class InspectPanel(_BasePanel):
     _doctor_mode: bool = False
 
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Inspect PATH", font=("Segoe UI", 14, "bold"),
@@ -402,7 +404,7 @@ class InspectPanel(_BasePanel):
 class DoctorPanel(InspectPanel):
     _doctor_mode: bool = True
 
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         # Re-implement to add doctor heading & recommendations
         _BasePanel.__init__(self, parent, runner, status_var)
@@ -450,7 +452,7 @@ def _entry_display(entry: "DiagnosticEntry") -> tuple[str, str, str]:
 
 # ── Backups ───────────────────────────────────────────────────────
 class BackupPanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Backups", font=("Segoe UI", 14, "bold"),
@@ -608,7 +610,7 @@ class BackupPanel(_BasePanel):
 
 # ── Edit PATH ─────────────────────────────────────────────────────
 class EditPanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Edit PATH", font=("Segoe UI", 14, "bold"),
@@ -632,10 +634,11 @@ class EditPanel(_BasePanel):
         ])
         self._diff_output = _make_output(self, height=6)
 
-        self._session = None
-        self._snapshot = None
-        self._adapter = None
+        self._session: EditSession | None = None
+        self._snapshot: PathSnapshot | None = None
+        self._adapter: PathWriter | None = None
         self._os_name = ""
+        self._edit_scope: Scope = Scope.USER
         self._load_session()
 
     def _load_session(self) -> None:
@@ -650,21 +653,23 @@ class EditPanel(_BasePanel):
         )
 
     @staticmethod
-    def _fetch(scope_str: str) -> tuple:
+    def _fetch(scope_str: str) -> tuple[object, ...]:
         from pathkeeper.services import get_snapshot_and_adapter
         snapshot, adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         entries = snapshot.entries_for_scope(scope)
         return snapshot, adapter, os_name, scope, entries
 
-    def _init_session(self, result: tuple) -> None:
+    def _init_session(self, result: tuple[object, ...]) -> None:
         from pathkeeper.core.edit import EditSession
+        from pathkeeper.core.path_writer import PathWriter
         snapshot, adapter, os_name, scope, entries = result
-        self._snapshot = snapshot
-        self._adapter = adapter
-        self._os_name = os_name
-        self._edit_scope = scope
-        self._session = EditSession(entries, os_name)
+        self._snapshot = snapshot  # type: ignore[assignment]
+        self._adapter = adapter  # type: ignore[assignment]
+        self._os_name = str(os_name)
+        if isinstance(scope, Scope):
+            self._edit_scope = scope
+        self._session = EditSession(entries, str(os_name))  # type: ignore[arg-type]
         self._refresh_tree()
         self._status.set("Edit session loaded")
 
@@ -792,7 +797,7 @@ class EditPanel(_BasePanel):
         )
 
     @staticmethod
-    def _do_write(adapter: object, snapshot: "PathSnapshot", entries: list[str],
+    def _do_write(adapter: "PathWriter", snapshot: "PathSnapshot", entries: list[str],
                   scope: "Scope", os_name: str) -> str:
         from pathkeeper.core.diagnostics import join_path
         from pathkeeper.core.path_writer import write_changed_snapshot
@@ -814,7 +819,7 @@ class EditPanel(_BasePanel):
 
 # ── Dedupe ────────────────────────────────────────────────────────
 class DedupePanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Dedupe PATH", font=("Segoe UI", 14, "bold"),
@@ -905,7 +910,7 @@ class DedupePanel(_BasePanel):
 
 # ── Populate ──────────────────────────────────────────────────────
 class PopulatePanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Populate PATH", font=("Segoe UI", 14, "bold"),
@@ -988,7 +993,7 @@ class PopulatePanel(_BasePanel):
 
 # ── Repair ────────────────────────────────────────────────────────
 class RepairPanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Repair Truncated", font=("Segoe UI", 14, "bold"),
@@ -1041,7 +1046,7 @@ class RepairPanel(_BasePanel):
 
 # ── Schedule ──────────────────────────────────────────────────────
 class SchedulePanel(_BasePanel):
-    def __init__(self, parent: tk.Widget, runner: _BackgroundRunner,
+    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
                  status_var: tk.StringVar) -> None:
         super().__init__(parent, runner, status_var)
         tk.Label(self, text="Schedule", font=("Segoe UI", 14, "bold"),

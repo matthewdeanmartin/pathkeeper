@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import ctypes
 import os
+import sys
 from typing import Any
 
 from pathkeeper.core.diagnostics import split_path
 from pathkeeper.errors import PermissionDeniedError
 
-try:
-    import winreg
-except ImportError:  # pragma: no cover - exercised on non-Windows platforms
-    winreg = None  # type: ignore[assignment]
+if sys.platform == "win32":
+    import winreg as _winreg
+    _WINREG: Any = _winreg
+else:
+    _WINREG: Any = None  # type: ignore[no-redef]
 
 
 SYSTEM_KEY = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
@@ -25,7 +27,7 @@ class WindowsPlatform:
     os_name = "windows"
 
     def __init__(self) -> None:
-        if winreg is None:
+        if _WINREG is None:
             self._fallback_raw = os.environ.get("PATH", "")
         self._registry_cache: dict[str, tuple[list[str], str]] = {}
 
@@ -37,36 +39,36 @@ class WindowsPlatform:
     def _read_registry(self, root: Any, key_name: str) -> tuple[list[str], str]:
         if key_name in self._registry_cache:
             return self._registry_cache[key_name]
-        if winreg is None:
+        if _WINREG is None:
             result: tuple[list[str], str] = (split_path(self._fallback_raw, self.os_name), self._fallback_raw)
         else:
-            with winreg.OpenKey(root, key_name) as key:
-                value, _value_type = winreg.QueryValueEx(key, REG_PATH_VALUE)
+            with _WINREG.OpenKey(root, key_name) as key:
+                value, _value_type = _WINREG.QueryValueEx(key, REG_PATH_VALUE)
             raw = str(value)
             result = (split_path(raw, self.os_name), raw)
         self._registry_cache[key_name] = result
         return result
 
     def read_system_path(self) -> list[str]:
-        return self._read_registry(winreg.HKEY_LOCAL_MACHINE if winreg else object(), SYSTEM_KEY)[0]
+        return self._read_registry(_WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY)[0]
 
     def read_user_path(self) -> list[str]:
-        return self._read_registry(winreg.HKEY_CURRENT_USER if winreg else object(), USER_KEY)[0]
+        return self._read_registry(_WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY)[0]
 
     def read_system_path_raw(self) -> str:
-        return self._read_registry(winreg.HKEY_LOCAL_MACHINE if winreg else object(), SYSTEM_KEY)[1]
+        return self._read_registry(_WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY)[1]
 
     def read_user_path_raw(self) -> str:
-        return self._read_registry(winreg.HKEY_CURRENT_USER if winreg else object(), USER_KEY)[1]
+        return self._read_registry(_WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY)[1]
 
     def _write_registry(self, root: Any, key_name: str, entries: list[str]) -> None:
         raw = ";".join(entries)
-        if winreg is None:
+        if _WINREG is None:
             self._fallback_raw = raw
             return
         try:
-            with winreg.OpenKey(root, key_name, 0, winreg.KEY_SET_VALUE) as key:
-                winreg.SetValueEx(key, REG_PATH_VALUE, 0, winreg.REG_EXPAND_SZ, raw)
+            with _WINREG.OpenKey(root, key_name, 0, _WINREG.KEY_SET_VALUE) as key:
+                _WINREG.SetValueEx(key, REG_PATH_VALUE, 0, _WINREG.REG_EXPAND_SZ, raw)
         except PermissionError as error:
             scope_name = "system" if key_name == SYSTEM_KEY else "user"
             raise PermissionDeniedError(
@@ -76,10 +78,10 @@ class WindowsPlatform:
         self._broadcast_change()
 
     def write_system_path(self, entries: list[str]) -> None:
-        self._write_registry(winreg.HKEY_LOCAL_MACHINE if winreg else object(), SYSTEM_KEY, entries)
+        self._write_registry(_WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY, entries)
 
     def write_user_path(self, entries: list[str]) -> None:
-        self._write_registry(winreg.HKEY_CURRENT_USER if winreg else object(), USER_KEY, entries)
+        self._write_registry(_WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY, entries)
 
     def ensure_system_writable(self) -> None:
         if os.name != "nt":

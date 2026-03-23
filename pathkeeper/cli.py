@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from pathkeeper.core.edit import EditSession
     from pathkeeper.core.path_writer import PathWriter
     from pathkeeper.interactive import MenuHandler
-    from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot, TruncatedPathRepair
+    from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot, PopulateMatch, TruncatedPathRepair
 
 
 LOG_LEVELS = {
@@ -50,10 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
     formatter_class: type[argparse.HelpFormatter] = argparse.HelpFormatter
     _totalhelp_action: type | None = None
     try:
-        from rich_argparse import RichHelpFormatter as _Formatter  # type: ignore[import-not-found]
+        from rich_argparse import RichHelpFormatter as _Formatter  # type: ignore[import-not-found,import-untyped,no-any-expr,unused-ignore]
         formatter_class = _Formatter
         try:
-            from totalhelp import TotalHelpAction as _TotalHelpAction  # type: ignore[import-not-found]
+            from totalhelp import TotalHelpAction as _TotalHelpAction  # type: ignore[import-not-found,import-untyped,attr-defined,no-any-expr,unused-ignore]
             _totalhelp_action = _TotalHelpAction
         except ImportError:
             pass
@@ -656,7 +656,7 @@ def _dedupe(args: argparse.Namespace) -> int:
     return 0
 
 
-def _populate_select_interactive(grouped: dict[str, list]) -> list:
+def _populate_select_interactive(grouped: dict[str, list[PopulateMatch]]) -> list[PopulateMatch]:
     """Prompt category-by-category; return chosen PopulateMatch list."""
     selected = []
     categories = list(grouped.keys())
@@ -1342,7 +1342,7 @@ def _interactive() -> int:
 def run(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     try:
-        import argcomplete  # type: ignore[import-not-found]
+        import argcomplete  # type: ignore[import-not-found,import-untyped,unused-ignore]
         argcomplete.autocomplete(parser)
     except ImportError:
         pass
