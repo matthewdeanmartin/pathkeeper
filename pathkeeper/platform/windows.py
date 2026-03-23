@@ -12,7 +12,7 @@ if sys.platform == "win32":
     import winreg as _winreg
     _WINREG: Any = _winreg
 else:
-    _WINREG: Any = None  # type: ignore[no-redef]
+    _WINREG: Any = None
 
 
 SYSTEM_KEY = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
@@ -87,7 +87,7 @@ class WindowsPlatform:
         if os.name != "nt":
             return
         try:
-            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+            is_admin = bool(getattr(ctypes, "windll").shell32.IsUserAnAdmin())
         except (AttributeError, OSError) as error:
             raise PermissionDeniedError(
                 "Unable to determine whether the system PATH is writable. "
@@ -102,6 +102,6 @@ class WindowsPlatform:
     def _broadcast_change(self) -> None:
         if os.name != "nt":
             return
-        send_message_timeout = ctypes.windll.user32.SendMessageTimeoutW
+        send_message_timeout = getattr(ctypes, "windll").user32.SendMessageTimeoutW
         send_message_timeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, "Environment", SMTO_ABORTIFHUNG, 5000, None)
 
