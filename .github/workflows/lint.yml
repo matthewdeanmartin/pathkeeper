@@ -15,8 +15,6 @@ jobs:
       - uses: hynek/setup-cached-uv@0b9e52652c2d5d4fb6af4598efa3d14e60e934d1  # v2.4.0
       - name: Install dependencies
         run: uv sync --all-extras
-      - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@latest
       - name: Install checkmake
         run: go install github.com/checkmake/checkmake/cmd/checkmake@latest
       - name: Lint GitHub Actions workflows (actionlint + shellcheck)

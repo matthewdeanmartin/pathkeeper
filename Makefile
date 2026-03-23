@@ -113,13 +113,13 @@ dev-status:
 	@$(UV) run troml-dev-status validate .
 
 gha-lint:
-	@actionlint $(GHA_WORKFLOWS)/*.yml
+	@$(UV) run actionlint $(GHA_WORKFLOWS)/*.yml
 
 gha-update:
 	@GITHUB_TOKEN=$$(gh auth token) pinact run --update $(GHA_WORKFLOWS)/*.yml
 
 shellcheck:
-	@actionlint -shellcheck "$(UV) run shellcheck" $(GHA_WORKFLOWS)/*.yml
+	@$(UV) run actionlint -shellcheck "$(UV) run shellcheck" $(GHA_WORKFLOWS)/*.yml
 
 makefile-lint:
 	@checkmake --config checkmake.ini Makefile
