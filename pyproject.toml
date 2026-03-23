@@ -22,6 +22,9 @@ completion = [
 [project.scripts]
 pathkeeper = "pathkeeper.cli:main"
 
+[project.gui-scripts]
+pathkeeper-gui = "pathkeeper.gui.app:launch_gui"
+
 [dependency-groups]
 dev = [
   "mypy>=1.18.2",

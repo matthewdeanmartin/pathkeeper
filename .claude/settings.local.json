@@ -6,7 +6,8 @@
       "Bash(grep:*)",
       "Bash(cat C:/github/pathkeeper/spec/*.md)",
       "Bash(find /c/github/pathkeeper/src -type f -name *.py)",
-      "Bash(find /c/github/pathkeeper -maxdepth 2 -type f -name *.py)"
+      "Bash(find /c/github/pathkeeper -maxdepth 2 -type f -name *.py)",
+      "Bash(wc -l /c/github/pathkeeper/tests/test_*.py)"
     ]
   }
 }

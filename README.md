@@ -10,7 +10,7 @@ to recover.
 ## Usage
 
 Run `pathkeeper` and follow the startup. Or run `pathkeeper` again and follow the interactive commands. It also has a 
-full bash CLI. Or run `pathkeeper --gui` for tkinter GUI.
+full bash CLI. Or run `pathkeeper gui` for tkinter GUI.
 
 ## What it does
 

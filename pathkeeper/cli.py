@@ -179,6 +179,15 @@ def build_parser() -> argparse.ArgumentParser:
     shell_startup_parser.add_argument("--dry-run", action="store_true")
     shell_startup_parser.add_argument("--remove", action="store_true", help="Remove the injected line instead of adding it.")
 
+    subparsers.add_parser("gui", help="Launch the graphical interface.")
+
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        default=False,
+        help="Launch the graphical interface.",
+    )
+
     return parser
 
 
@@ -1340,6 +1349,9 @@ def run(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     _configure_logging(args.log_level)
     _init_theme(args)
+    if args.command == "gui" or getattr(args, "gui", False):
+        from pathkeeper.gui.app import launch_gui
+        return launch_gui()
     if args.command is None:
         from pathkeeper.config import app_home
         if not app_home().exists():
