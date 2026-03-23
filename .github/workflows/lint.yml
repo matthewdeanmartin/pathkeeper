@@ -16,7 +16,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
       - name: Install checkmake
-        run: go install github.com/checkmake/checkmake/cmd/checkmake@latest
+        run: |
+          go install github.com/checkmake/checkmake/cmd/checkmake@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Lint GitHub Actions workflows (actionlint + shellcheck)
         run: make shellcheck
       - name: Lint Makefile (checkmake)

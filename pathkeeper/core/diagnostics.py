@@ -348,26 +348,45 @@ def doctor_checks(report: DiagnosticReport) -> list[DoctorCheck]:
             )
         )
 
-    # 6. Unexpanded variables
+    # 6. Unexpanded / unresolvable variables
+    # An entry "has_unexpanded_vars" when the raw value still contains a
+    # %VAR% or $VAR token after os.path.expandvars().  That happens when the
+    # variable is not defined in the current process environment.  We split
+    # into two buckets:
+    #   • unresolvable: expanded_value still matches the raw value (the var
+    #     was never substituted — the variable is undefined)
+    #   • unexpanded_only: the token survived but expansion did change the
+    #     string (shouldn't happen given how expandvars works, kept for safety)
     unexp = [
         e
         for e in report.entries
         if e.has_unexpanded_vars and not e.is_empty and not e.is_duplicate
     ]
-    if unexp:
+    # Unresolvable = the variable token is still literally present after
+    # expansion (os.path.expandvars left it unchanged because the var is
+    # missing from the current environment).
+    unresolvable = [
+        e for e in unexp if e.expanded_value == e.value or e.has_unexpanded_vars
+    ]
+    if unresolvable:
         checks.append(
             DoctorCheck(
-                "Unexpanded variables",
+                "Unresolvable variables",
                 status=_STATUS_WARN,
-                detail=f"{len(unexp)} found",
-                affected=unexp,
-                remediation="Check that referenced variables are defined.",
+                detail=f"{len(unresolvable)} found",
+                affected=unresolvable,
+                remediation=(
+                    "These entries contain %VAR% or $VAR references that the "
+                    "current process cannot expand — the variables are likely "
+                    "undefined.  Verify with `echo %VAR%` (cmd) or "
+                    "`echo $VAR` (bash)."
+                ),
             )
         )
     else:
         checks.append(
             DoctorCheck(
-                "Unexpanded variables", status=_STATUS_PASS, detail="none found"
+                "Unresolvable variables", status=_STATUS_PASS, detail="none found"
             )
         )
 
@@ -403,6 +422,38 @@ def doctor_checks(report: DiagnosticReport) -> list[DoctorCheck]:
                     "PATH length",
                     status=_STATUS_PASS,
                     detail=f"{report.path_length:,} chars",
+                )
+            )
+
+        # 8. setx / cmd.exe truncation sentinel (Windows only)
+        # setx.exe silently truncates at 1,024 characters; cmd.exe's environment
+        # block limit causes truncation at 1,023 or 1,024 chars in some contexts.
+        # A PATH that is *exactly* 1023 or 1024 bytes is a strong telltale sign
+        # of prior truncation damage even if it is currently under the setx cap.
+        if report.path_length in {1023, 1024}:
+            checks.append(
+                DoctorCheck(
+                    "setx truncation sentinel",
+                    status=_STATUS_WARN,
+                    detail=(
+                        f"PATH is exactly {report.path_length} chars — "
+                        "classic setx/cmd truncation length"
+                    ),
+                    remediation=(
+                        "A PATH of exactly 1023 or 1024 characters is the telltale "
+                        "sign that setx.exe or an older tool silently truncated your "
+                        "PATH.  Compare with a known-good backup: "
+                        "`pathkeeper diff-current` or `pathkeeper backups show`.  "
+                        "Use `pathkeeper repair-truncated` to recover missing entries."
+                    ),
+                )
+            )
+        else:
+            checks.append(
+                DoctorCheck(
+                    "setx truncation sentinel",
+                    status=_STATUS_PASS,
+                    detail=f"no truncation at {report.path_length:,} chars",
                 )
             )
 

@@ -1,88 +1,180 @@
 # pathkeeper
 
-`pathkeeper` designed to help when a bad installer, shell tweak, or system tool mangles PATH and you need a reliable way
-to recover.
+`pathkeeper` is a typed Python CLI for backing up, inspecting, diagnosing, restoring, and repairing the PATH environment
+variable. When a bad installer, shell tweak, or system tool mangles PATH, pathkeeper gives you a reliable way to
+recover.
 
 ## Installation
 
-`pipx install pathkeeper` or your other favorite global installatin method.
-
-## Usage
-
-Run `pathkeeper` and follow the startup. Or run `pathkeeper` again and follow the interactive commands. It also has a
-full bash CLI. Or run `pathkeeper gui` for tkinter GUI.
-
-## What it does
-
-`pathkeeper` is a typed Python CLI for backing up, inspecting, diagnosing, restoring, deduplicating, repairing truncated
-entries, populating, and editing the PATH environment variable.
-
-- Creates versioned PATH backups in `~/.pathkeeper/backups/`
-- Diagnoses duplicates, invalid entries, empty entries, files-instead-of-directories, and Windows length limits
-- Restores system, user, or both PATH scopes from a saved snapshot
-- Creates safety backups before mutating operations
-- Deduplicates PATH entries and can remove invalid directories
-- Repairs likely truncated PATH entries by suggesting full matching directories from backup history or disk
-- Discovers common developer tool directories that are missing from PATH
-- Prefers the newest discovered version for versioned tool families such as Python and Node.js
-- Supports direct subcommands and a simple interactive menu
-- Interactive menu entries include short descriptions, and `Edit` opens a staged PATH editor instead of a read-only
-  listing
-- Includes schedule install/remove/status commands for automated backups
-
-## Project layout
-
-```text
-pathkeeper/
-├── pathkeeper/
-├── tests/
-├── pyproject.toml
-├── Makefile
-└── spec/
+```bash
+pipx install pathkeeper
 ```
 
-## Requirements
+Or any other global installation method.
 
-- Python 3.14
-- `uv`
-- `make` for the provided shortcuts
-
-## Setup
+## Quick start
 
 ```bash
-make sync
+# Interactive menu
+pathkeeper
+
+# GUI
+pathkeeper gui
 ```
 
-Or directly:
+## Scenarios
+
+### Diagnose your PATH
 
 ```bash
-uv sync --python 3.14
+# Checklist view — shows every check with PASS / FAIL / WARN
+pathkeeper doctor
+
+# Same, with plain-language explanation for each finding
+pathkeeper doctor --explain
+
+# Full entry listing with status markers
+pathkeeper inspect
+
+# Show only invalid (missing / not-a-directory) entries
+pathkeeper inspect --only-invalid
+
+# Show only duplicate entries
+pathkeeper inspect --only-dupes
+
+# JSON output (machine-readable)
+pathkeeper doctor --json
+pathkeeper inspect --json
 ```
 
-## Common commands
+### Back up and restore
 
 ```bash
-uv run pathkeeper --log-level info doctor
-uv run pathkeeper inspect
-uv run pathkeeper doctor
-uv run pathkeeper backup --note "before installing toolchain"
-uv run pathkeeper backup --force
-uv run pathkeeper backup --dry-run
-uv run pathkeeper backups list
-uv run pathkeeper backups show
-uv run pathkeeper backups show 2
-uv run pathkeeper restore 2025-03-05T14-30-00 --dry-run
-uv run pathkeeper dedupe --dry-run
-uv run pathkeeper repair-truncated --scope user
-uv run pathkeeper populate --dry-run
-uv run pathkeeper edit --add "/usr/local/newbin" --dry-run
-uv run pathkeeper edit --add "/usr/local/newbin" --force
-uv run pathkeeper schedule install --dry-run
-uv run pathkeeper schedule status
+# Create a backup (skips if content is unchanged)
+pathkeeper backup
+
+# Always create a backup, even if nothing changed
+pathkeeper backup --force
+
+# Attach a note
+pathkeeper backup --note "before installing toolchain"
+
+# Preview what would be backed up
+pathkeeper backup --dry-run
+
+# List recent backups
+pathkeeper backups list
+
+# Inspect a specific backup
+pathkeeper backups show          # pick interactively
+pathkeeper backups show 2        # backup #2 from the list
+
+# Compare a backup against the live PATH
+pathkeeper diff-current          # latest backup vs current
+pathkeeper diff-current 2        # backup #2 vs current
+pathkeeper diff-current 2025-03-05   # timestamp prefix vs current
+
+# Compare two backups against each other
+pathkeeper diff 1 2
+
+# Restore a backup
+pathkeeper restore 2025-03-05T14-30-00 --dry-run  # preview
+pathkeeper restore 2025-03-05T14-30-00             # apply
+pathkeeper restore 2 --scope user                  # user PATH only
 ```
 
-Run without arguments for the interactive menu:
+### Clean up PATH
 
 ```bash
-uv run pathkeeper
+# Remove duplicates and invalid entries (preview first)
+pathkeeper dedupe --dry-run
+pathkeeper dedupe
+
+# Remove duplicates only (keep invalid entries)
+pathkeeper dedupe --no-remove-invalid
+
+# Repair likely truncated entries (setx damage, etc.)
+pathkeeper repair-truncated --dry-run
+pathkeeper repair-truncated
 ```
+
+### Discover and add tools
+
+```bash
+# Preview what would be added
+pathkeeper populate --dry-run
+
+# Interactive selection by category
+pathkeeper populate
+
+# Add everything found
+pathkeeper populate --all
+
+# Add only a specific category
+pathkeeper populate --category python
+
+# Show the tool catalog
+pathkeeper populate --list-catalog
+```
+
+### Inspect shadows and runtime additions
+
+```bash
+# Show executables that shadow each other across PATH directories
+pathkeeper shadow
+
+# Show PATH entries injected at runtime (not from registry / rc files)
+pathkeeper runtime-entries
+```
+
+### Edit PATH directly
+
+```bash
+# Interactive staged editor
+pathkeeper edit
+
+# Add / remove / move entries non-interactively
+pathkeeper edit --add "/usr/local/newbin" --dry-run
+pathkeeper edit --add "/usr/local/newbin" --force
+pathkeeper edit --remove "/usr/local/oldbin"
+pathkeeper edit --move "/usr/local/bin" --position 1
+```
+
+### Automate backups
+
+```bash
+# Install a scheduled backup task (Task Scheduler / launchd / systemd)
+pathkeeper schedule install
+pathkeeper schedule install --trigger logon   # Windows per-user logon task
+pathkeeper schedule status
+pathkeeper schedule remove
+
+# Or inject a backup command into your shell startup file
+pathkeeper shell-startup
+pathkeeper shell-startup --shell bash --dry-run
+pathkeeper shell-startup --remove
+```
+
+### Verify your installation
+
+```bash
+# Run pathkeeper's own health checks (useful when reporting bugs)
+pathkeeper selfcheck
+```
+
+______________________________________________________________________
+
+## What it checks
+
+`pathkeeper doctor` runs a checklist that includes:
+
+- Duplicate entries
+- Missing / invalid directories
+- Files in PATH (not directories)
+- Empty entries (stray separators)
+- Missing separators (glued paths like `/usr/local/bin/usr/bin`)
+- Unresolvable variables (`%FOO%` / `$FOO` that are not defined)
+- PATH length (Windows: setx 2047-char limit, registry 32767-char limit)
+- setx truncation sentinel (PATH exactly 1023 or 1024 chars — classic damage sign)
+
+______________________________________________________________________

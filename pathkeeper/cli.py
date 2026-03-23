@@ -68,10 +68,46 @@ def build_parser() -> argparse.ArgumentParser:
             pass
     except ImportError:
         pass
+    _EPILOG = """
+examples:
+  # Diagnose your PATH
+  pathkeeper doctor
+  pathkeeper doctor --explain
+  pathkeeper inspect --only-invalid
+
+  # Back up and restore
+  pathkeeper backup --note "before installing toolchain"
+  pathkeeper backups list
+  pathkeeper diff-current          # compare latest backup vs live PATH
+  pathkeeper diff-current 2        # compare backup #2 vs live PATH
+  pathkeeper restore 2025-03-05    # restore by timestamp prefix
+  pathkeeper restore 2 --dry-run   # preview restore from backup #2
+
+  # Clean up PATH
+  pathkeeper dedupe --dry-run
+  pathkeeper dedupe
+  pathkeeper repair-truncated
+
+  # Discover and add tools
+  pathkeeper populate --dry-run
+  pathkeeper populate
+
+  # Inspect shadows and runtime additions
+  pathkeeper shadow
+  pathkeeper runtime-entries
+
+  # Automate backups
+  pathkeeper schedule install
+  pathkeeper shell-startup
+
+  # Verify your installation
+  pathkeeper selfcheck
+"""
     parser = argparse.ArgumentParser(
         prog="pathkeeper",
         description="PATH backup, restore, and repair tool.",
         formatter_class=formatter_class,
+        epilog=_EPILOG,
     )
     if _totalhelp_action is not None:
         parser.add_argument(
@@ -293,6 +329,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--remove",
         action="store_true",
         help="Remove the injected line instead of adding it.",
+    )
+
+    subparsers.add_parser(
+        "selfcheck",
+        help="Verify pathkeeper installation (backup dir, catalog, adapter, auto-backup).",
     )
 
     subparsers.add_parser("gui", help="Launch the graphical interface.")
@@ -1798,6 +1839,38 @@ def _shell_startup(args: argparse.Namespace) -> int:
     return 0
 
 
+def _selfcheck(_args: argparse.Namespace) -> int:
+    from pathkeeper.core.selfcheck import _STATUS_FAIL, _STATUS_WARN, run_selfcheck
+
+    report = run_selfcheck()
+    print(t.header("  pathkeeper selfcheck"))
+    print()
+    for check in report.checks:
+        if check.status == _STATUS_FAIL:
+            marker = t.error("FAIL")
+        elif check.status == _STATUS_WARN:
+            marker = t.warn("WARN")
+        else:
+            marker = t.ok("PASS")
+        padded = check.name.ljust(24, ".")
+        print(f"  {marker}  {padded} {check.detail}")
+        if check.remediation and check.status != "pass":
+            print(f"            {t.accent('->')} {check.remediation}")
+    print()
+    if report.passed:
+        print(t.ok("  Overall: all checks passed"))
+    else:
+        fail_count = sum(1 for c in report.checks if c.status == _STATUS_FAIL)
+        warn_count = sum(1 for c in report.checks if c.status == _STATUS_WARN)
+        parts = []
+        if fail_count:
+            parts.append(t.error(f"{fail_count} failed"))
+        if warn_count:
+            parts.append(t.warn(f"{warn_count} warnings"))
+        print(t.warn(f"  Overall: {', '.join(parts)}"))
+    return report.exit_code
+
+
 def _first_run_wizard() -> int:
     """Interactive onboarding for new users (no ~/.pathkeeper/ found)."""
     from pathkeeper.config import ensure_app_state
@@ -1979,6 +2052,12 @@ def _interactive() -> int:
             parser.parse_args(["runtime-entries"]),
             _runtime_entries,
         ),
+        "16": MenuEntry(
+            "Self-check",
+            "Verify pathkeeper installation health",
+            parser.parse_args(["selfcheck"]),
+            _selfcheck,
+        ),
     }
     _print_interactive_startup_banner()
     return run_interactive(dispatch)
@@ -2041,6 +2120,8 @@ def run(argv: Sequence[str] | None = None) -> int:
         return _runtime_entries(args)
     if args.command == "shell-startup":
         return _shell_startup(args)
+    if args.command == "selfcheck":
+        return _selfcheck(args)
     raise PathkeeperError(f"Unknown command: {args.command}")
 
 

@@ -130,6 +130,7 @@ class PathkeeperApp(tk.Tk):
             ("shadow", "Shadows"),
             ("diff_current", "Diff vs Current"),
             ("runtime", "Runtime Entries"),
+            ("selfcheck", "Self-Check"),
         ]
         for key, label in items:
             btn = tk.Button(
@@ -210,6 +211,7 @@ def _build_panel(
         "shadow": ShadowPanel,
         "diff_current": DiffCurrentPanel,
         "runtime": RuntimeEntriesPanel,
+        "selfcheck": SelfCheckPanel,
     }
     cls = builders.get(name, DashboardPanel)
     return cls(parent, runner, status_var)
@@ -1805,6 +1807,98 @@ class RuntimeEntriesPanel(_BasePanel):
             if runtime_count
             else "All entries match the persisted PATH"
         )
+        _output_set(self._output, msg)
+        self._status.set(msg)
+
+    def _on_error(self, exc: Exception) -> None:
+        _output_set(self._output, f"Error: {exc}")
+        self._status.set(f"Error: {exc}")
+
+
+# ── Self-Check ────────────────────────────────────────────────────
+class SelfCheckPanel(_BasePanel):
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
+        super().__init__(parent, runner, status_var)
+        tk.Label(
+            self,
+            text="Self-Check",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Verify pathkeeper installation health",
+            font=("Segoe UI", 10),
+            fg=_CLR_DIM,
+            bg=_CLR_BG,
+        ).pack(pady=(0, 4))
+
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Run checks", self._run)
+
+        self._tree = _make_tree(
+            self,
+            [
+                ("status", "Status", 70),
+                ("name", "Check", 200),
+                ("detail", "Detail", 400),
+                ("remediation", "Remediation", 420),
+            ],
+        )
+        self._output = _make_output(self, height=4)
+        self._run()
+
+    def _run(self) -> None:
+        self._status.set("Running self-checks...")
+        self._runner.run(self._fetch, on_success=self._display, on_error=self._on_error)
+
+    @staticmethod
+    def _fetch() -> list[object]:
+        from pathkeeper.core.selfcheck import run_selfcheck
+
+        report = run_selfcheck()
+        return list(report.checks)
+
+    def _display(self, checks: list[object]) -> None:
+        from pathkeeper.core.selfcheck import (
+            _STATUS_FAIL,
+            _STATUS_WARN,
+            SelfCheckResult,
+        )
+
+        for child in self._tree.get_children():
+            self._tree.delete(child)
+        fail_count = 0
+        warn_count = 0
+        for check in checks:
+            if not isinstance(check, SelfCheckResult):
+                continue
+            if check.status == _STATUS_FAIL:
+                status_label = "FAIL"
+                tag = "error"
+                fail_count += 1
+            elif check.status == _STATUS_WARN:
+                status_label = "WARN"
+                tag = "warn"
+                warn_count += 1
+            else:
+                status_label = "PASS"
+                tag = "ok"
+            self._tree.insert(
+                "",
+                tk.END,
+                values=(status_label, check.name, check.detail, check.remediation),
+                tags=(tag,),
+            )
+        if fail_count:
+            msg = f"{fail_count} check(s) failed, {warn_count} warning(s)"
+        elif warn_count:
+            msg = f"All checks passed with {warn_count} warning(s)"
+        else:
+            msg = "All checks passed"
         _output_set(self._output, msg)
         self._status.set(msg)
 
