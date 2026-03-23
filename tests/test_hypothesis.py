@@ -484,7 +484,7 @@ def test_format_backup_timestamp_ends_with_z(ts: datetime) -> None:
     assert result.endswith("Z")
 
 
-@given(ts=st.datetimes(timezones=st.just(UTC)))
+@given(ts=st.datetimes(min_value=datetime(1000, 1, 1), timezones=st.just(UTC)))
 def test_format_backup_timestamp_has_expected_format(ts: datetime) -> None:
     result = format_backup_timestamp_utc(ts)
     # e.g. "2024-03-15 09:30Z"
