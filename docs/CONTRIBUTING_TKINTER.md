@@ -36,11 +36,11 @@ pathkeeper/
 
 ### The three-layer rule
 
-| Layer | Touches the filesystem? | Knows about tkinter? | Examples |
-|---|---|---|---|
-| **Core** (`core/*`, `models.py`) | Yes (reads/writes PATH, backups) | No | `analyze_snapshot`, `EditSession`, `create_backup` |
-| **Services** (`services.py`) | Yes (loads config, calls core) | No | `read_current_report`, `backup_now`, `get_snapshot_and_adapter` |
-| **GUI** (`gui/app.py`) | No (delegates to services/core) | Yes | `DashboardPanel`, `InspectPanel`, `EditPanel` |
+| Layer                            | Touches the filesystem?          | Knows about tkinter? | Examples                                                        |
+|----------------------------------|----------------------------------|----------------------|-----------------------------------------------------------------|
+| **Core** (`core/*`, `models.py`) | Yes (reads/writes PATH, backups) | No                   | `analyze_snapshot`, `EditSession`, `create_backup`              |
+| **Services** (`services.py`)     | Yes (loads config, calls core)   | No                   | `read_current_report`, `backup_now`, `get_snapshot_and_adapter` |
+| **GUI** (`gui/app.py`)           | No (delegates to services/core)  | Yes                  | `DashboardPanel`, `InspectPanel`, `EditPanel`                   |
 
 The GUI never reads or writes the PATH directly. It calls core modules
 (via the services layer when orchestration is needed) and renders the
@@ -72,6 +72,7 @@ import is deferred behind a condition in `cli.py`:
 ```python
 if args.command == "gui" or getattr(args, "gui", False):
     from pathkeeper.gui.app import launch_gui
+
     return launch_gui()
 ```
 
@@ -80,6 +81,7 @@ explicitly asks for the GUI. Verified by test:
 
 ```python
 import pathkeeper.cli
+
 assert "tkinter" not in sys.modules
 ```
 
@@ -90,17 +92,17 @@ ______________________________________________________________________
 All colours are defined as module-level constants at the top of `app.py`:
 
 ```python
-_CLR_OK      = "#22c55e"   # green  — valid entries
-_CLR_WARN    = "#eab308"   # yellow — duplicates, warnings
-_CLR_ERR     = "#ef4444"   # red    — missing, invalid
-_CLR_DIM     = "#9ca3af"   # grey   — secondary text
-_CLR_BG      = "#1e1e2e"   # dark   — main background
-_CLR_BG_ALT  = "#252536"   # slightly lighter — text widgets
-_CLR_FG      = "#cdd6f4"   # light  — primary text
-_CLR_ACCENT  = "#89b4fa"   # blue   — headings, active sidebar
-_CLR_SIDEBAR = "#181825"   # darkest — sidebar background
-_CLR_BTN     = "#313244"   # button background
-_CLR_BTN_ACTIVE = "#45475a" # button hover
+_CLR_OK = "#22c55e"  # green  — valid entries
+_CLR_WARN = "#eab308"  # yellow — duplicates, warnings
+_CLR_ERR = "#ef4444"  # red    — missing, invalid
+_CLR_DIM = "#9ca3af"  # grey   — secondary text
+_CLR_BG = "#1e1e2e"  # dark   — main background
+_CLR_BG_ALT = "#252536"  # slightly lighter — text widgets
+_CLR_FG = "#cdd6f4"  # light  — primary text
+_CLR_ACCENT = "#89b4fa"  # blue   — headings, active sidebar
+_CLR_SIDEBAR = "#181825"  # darkest — sidebar background
+_CLR_BTN = "#313244"  # button background
+_CLR_BTN_ACTIVE = "#45475a"  # button hover
 ```
 
 These are [Catppuccin Mocha](https://catppuccin.com/) inspired. To change
@@ -112,10 +114,10 @@ Treeviews use a custom `ttk.Style` named `"Path.Treeview"` configured in
 `_make_tree`. Row colouring is done via treeview **tags**:
 
 ```python
-tree.tag_configure("ok",    foreground=_CLR_OK)
-tree.tag_configure("warn",  foreground=_CLR_WARN)
+tree.tag_configure("ok", foreground=_CLR_OK)
+tree.tag_configure("warn", foreground=_CLR_WARN)
 tree.tag_configure("error", foreground=_CLR_ERR)
-tree.tag_configure("dim",   foreground=_CLR_DIM)
+tree.tag_configure("dim", foreground=_CLR_DIM)
 ```
 
 When inserting rows, pass the tag:
@@ -140,9 +142,9 @@ filesystem scans) must run off the UI thread.
 ```python
 class _BackgroundRunner:
     def run(self, func, *, args=(), on_success=None, on_error=None):
-        # 1. Spawns a daemon thread
-        # 2. Calls func(*args)
-        # 3. Posts on_success(result) or on_error(exc) back via root.after()
+# 1. Spawns a daemon thread
+# 2. Calls func(*args)
+# 3. Posts on_success(result) or on_error(exc) back via root.after()
 ```
 
 Usage in a panel:
@@ -151,11 +153,12 @@ Usage in a panel:
 def _load(self):
     self._status.set("Loading...")
     self._runner.run(
-        self._fetch,                     # runs in background thread
+        self._fetch,  # runs in background thread
         args=(self._scope_var.get(),),
-        on_success=self._display,        # runs on main thread
-        on_error=self._on_error,         # runs on main thread
+        on_success=self._display,  # runs on main thread
+        on_error=self._on_error,  # runs on main thread
     )
+
 
 @staticmethod
 def _fetch(scope_str):
@@ -163,6 +166,7 @@ def _fetch(scope_str):
     # It can only call core/services and return data.
     from pathkeeper.services import read_current_report
     return read_current_report(Scope.from_value(scope_str))
+
 
 def _display(self, report):
     # Safe to update widgets here — we're on the main thread.
@@ -198,14 +202,14 @@ factory dict:
 ```python
 builders = {
     "dashboard": DashboardPanel,
-    "inspect":   InspectPanel,
-    "doctor":    DoctorPanel,
-    "backup":    BackupPanel,
-    "edit":      EditPanel,
-    "dedupe":    DedupePanel,
-    "populate":  PopulatePanel,
-    "repair":    RepairPanel,
-    "schedule":  SchedulePanel,
+    "inspect": InspectPanel,
+    "doctor": DoctorPanel,
+    "backup": BackupPanel,
+    "edit": EditPanel,
+    "dedupe": DedupePanel,
+    "populate": PopulatePanel,
+    "repair": RepairPanel,
+    "schedule": SchedulePanel,
 }
 ```
 
@@ -233,14 +237,14 @@ ______________________________________________________________________
 
 ## Reusable widget helpers
 
-| Helper | Returns | Purpose |
-|---|---|---|
-| `_make_tree(parent, columns, height)` | `ttk.Treeview` | Themed treeview with scrollbar and colour tags |
-| `_make_output(parent, height)` | `tk.Text` | Read-only scrolled text area for output/diff display |
-| `_output_set(text_widget, content)` | — | Replace text content (handles enable/disable state) |
-| `_make_scope_selector(parent, default)` | `tk.StringVar` | Row of radio buttons for system/user/all |
-| `_make_toolbar(parent)` | `tk.Frame` | Horizontal button bar |
-| `_toolbar_btn(bar, text, command)` | `tk.Button` | Themed button inside a toolbar |
+| Helper                                  | Returns        | Purpose                                              |
+|-----------------------------------------|----------------|------------------------------------------------------|
+| `_make_tree(parent, columns, height)`   | `ttk.Treeview` | Themed treeview with scrollbar and colour tags       |
+| `_make_output(parent, height)`          | `tk.Text`      | Read-only scrolled text area for output/diff display |
+| `_output_set(text_widget, content)`     | —              | Replace text content (handles enable/disable state)  |
+| `_make_scope_selector(parent, default)` | `tk.StringVar` | Row of radio buttons for system/user/all             |
+| `_make_toolbar(parent)`                 | `tk.Frame`     | Horizontal button bar                                |
+| `_toolbar_btn(bar, text, command)`      | `tk.Button`    | Themed button inside a toolbar                       |
 
 These helpers handle scrollbar wiring, colour configuration, and layout
 so that panel code stays focused on business logic.
@@ -251,11 +255,11 @@ ______________________________________________________________________
 
 The CLI uses `input()` for confirmations. The GUI replaces these with:
 
-| CLI pattern | GUI replacement |
-|---|---|
-| `_confirm("Apply?", force=flag)` | `messagebox.askyesno("Title", "Apply?")` |
-| `_prompt_yes_no("Install?", default=True)` | `messagebox.askyesno(...)` |
-| `input("Enter path: ")` | `filedialog.askdirectory(...)` |
+| CLI pattern                                | GUI replacement                          |
+|--------------------------------------------|------------------------------------------|
+| `_confirm("Apply?", force=flag)`           | `messagebox.askyesno("Title", "Apply?")` |
+| `_prompt_yes_no("Install?", default=True)` | `messagebox.askyesno(...)`               |
+| `input("Enter path: ")`                    | `filedialog.askdirectory(...)`           |
 
 These are modal but do not block the tkinter event loop.
 

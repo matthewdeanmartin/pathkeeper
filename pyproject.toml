@@ -127,6 +127,7 @@ env_list = py313, py314, py315
 deps =
     pytest>=8.4.2
     mypy>=1.18.2
+    hypothesis>=6.151.9
 commands =
     pytest {posargs}
     mypy pathkeeper tests
