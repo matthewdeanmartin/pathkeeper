@@ -12,6 +12,13 @@ dependencies = [
     "pytable-formatter>=0.1.1",
 ]
 
+[project.optional-dependencies]
+completion = [
+    "argcomplete>=3.3.0",
+    "rich-argparse>=1.5.0",
+    "totalhelp>=0.1.0",
+]
+
 [project.scripts]
 pathkeeper = "pathkeeper.cli:main"
 
@@ -22,8 +29,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q -m 'not slow'"
 testpaths = ["tests"]
+markers = [
+    "slow: performance benchmarks (run with -m slow)",
+]
 
 [tool.mypy]
 python_version = "3.14"

@@ -129,3 +129,42 @@ def doctor_recommendations(report: DiagnosticReport) -> list[str]:
         recommendations.append("No obvious PATH issues were detected.")
     return recommendations
 
+
+def explain_entry(entry: "DiagnosticEntry", os_name: str) -> str:
+    """Return a plain-language explanation for a diagnostic entry's status."""
+    if entry.is_empty:
+        return (
+            "This is an empty PATH entry (usually a stray separator). "
+            "It causes no harm but can be removed with `pathkeeper dedupe`."
+        )
+    if entry.is_duplicate and entry.duplicate_of is not None:
+        return (
+            f"This entry is a duplicate of #{entry.duplicate_of}. "
+            "Only the first occurrence is used; the rest are ignored by the shell. "
+            "Run `pathkeeper dedupe` to remove duplicates."
+        )
+    if entry.has_unexpanded_vars:
+        if os_name == "windows":
+            return (
+                f"This entry contains an unexpanded variable ({entry.value!r}). "
+                "The variable may not be set in the current environment. "
+                "Check the variable name and ensure it is defined before pathkeeper runs."
+            )
+        return (
+            f"This entry contains an unexpanded shell variable ({entry.value!r}). "
+            "Variables are not expanded in PATH entries read from the registry or environment on all platforms."
+        )
+    if not entry.exists:
+        return (
+            f"This directory does not exist: {entry.expanded_value!r}. "
+            "It may have been uninstalled, moved, or never created. "
+            "Consider removing it with `pathkeeper dedupe --remove-invalid` or `pathkeeper edit --remove`."
+        )
+    if entry.exists and not entry.is_dir:
+        return (
+            f"{entry.expanded_value!r} exists but is a file, not a directory. "
+            "PATH entries must be directories. This entry will be ignored by the shell. "
+            "Remove it with `pathkeeper edit --remove`."
+        )
+    return "This entry looks healthy."
+

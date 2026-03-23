@@ -1,32 +1,36 @@
+# PYTHON_ARGCOMPLETE_OK
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import shlex
 import sys
-from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import Protocol
-
-from pytable_formatter import Table  # type: ignore[import-untyped]
+from typing import TYPE_CHECKING, Protocol
+from collections.abc import Sequence
 
 from pathkeeper import __version__
 from pathkeeper.config import backups_home, load_config
-from pathkeeper.core.backup import backup_content_hash, backup_filename, create_backup, list_backups, prune_backups, resolve_backup
-from pathkeeper.core.dedupe import dedupe_entries
-from pathkeeper.core.diagnostics import analyze_snapshot, doctor_recommendations, join_path
-from pathkeeper.core.diff import compute_diff, render_diff
-from pathkeeper.core.edit import EditSession
+from pathkeeper.core.backup import (
+    _load_latest_backup,
+    backup_content_hash,
+    backup_filename,
+    create_backup,
+    list_backups,
+    prune_backups,
+    resolve_backup,
+)
 from pathkeeper.core.path_reader import read_snapshot
-from pathkeeper.core.path_writer import PathWriter, write_changed_snapshot
-from pathkeeper.core.populate import discover_tools, group_matches, load_catalog
-from pathkeeper.core.repair_truncated import find_truncated_repairs
-from pathkeeper.core.schedule import install_schedule, remove_schedule, schedule_status
 from pathkeeper.errors import PathkeeperError, PermissionDeniedError, UserCancelledError
-from pathkeeper.interactive import MenuEntry, MenuHandler, run_interactive
-from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot, Scope, TruncatedPathRepair
+from pathkeeper.models import Scope
 from pathkeeper.platform import get_platform_adapter, normalized_os_name
+from pathkeeper.theme import t
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathkeeper.core.edit import EditSession
+    from pathkeeper.core.path_writer import PathWriter
+    from pathkeeper.interactive import MenuHandler
+    from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot, TruncatedPathRepair
 
 
 LOG_LEVELS = {
@@ -43,13 +47,38 @@ class _SystemWritableChecker(Protocol):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pathkeeper", description="PATH backup, restore, and repair tool.")
+    formatter_class: type[argparse.HelpFormatter] = argparse.HelpFormatter
+    _totalhelp_action: type | None = None
+    try:
+        from rich_argparse import RichHelpFormatter as _Formatter  # type: ignore[import-not-found]
+        formatter_class = _Formatter
+        try:
+            from totalhelp import TotalHelpAction as _TotalHelpAction  # type: ignore[import-not-found]
+            _totalhelp_action = _TotalHelpAction
+        except ImportError:
+            pass
+    except ImportError:
+        pass
+    parser = argparse.ArgumentParser(
+        prog="pathkeeper",
+        description="PATH backup, restore, and repair tool.",
+        formatter_class=formatter_class,
+    )
+    if _totalhelp_action is not None:
+        parser.add_argument("--all-help", action=_totalhelp_action, help="Show help for all subcommands.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--log-level",
         default="warning",
         choices=sorted(LOG_LEVELS),
         help="Set logging verbosity.",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        dest="no_color",
+        default=False,
+        help="Disable colored output.",
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -58,6 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor_parser = subparsers.add_parser("doctor", help="Diagnose PATH problems.")
     _add_diagnostic_flags(doctor_parser)
+    doctor_parser.add_argument("--explain", action="store_true", help="Add plain-language explanation for each finding.")
 
     backup_parser = subparsers.add_parser("backup", help="Create a PATH backup.")
     backup_parser.add_argument("--note", default="", help="Attach a note to the backup.")
@@ -125,6 +155,30 @@ def build_parser() -> argparse.ArgumentParser:
     remove_parser.add_argument("--dry-run", action="store_true")
     schedule_subparsers.add_parser("status", help="Inspect schedule status.")
 
+    diff_parser = subparsers.add_parser("diff", help="Show differences between two backups.")
+    diff_parser.add_argument("backup_a", help="First backup: file path, timestamp prefix, or number.")
+    diff_parser.add_argument("backup_b", help="Second backup: file path, timestamp prefix, or number.")
+    diff_parser.add_argument("--scope", default="all", choices=["system", "user", "all"])
+
+    shell_startup_parser = subparsers.add_parser(
+        "shell-startup",
+        help="Inject 'pathkeeper backup' into a shell startup file (Git Bash, WSL, PowerShell profile, etc.).",
+    )
+    shell_startup_parser.add_argument(
+        "--shell",
+        default=None,
+        choices=["bash", "zsh", "powershell", "pwsh", "fish"],
+        help="Target shell.  Auto-detected when omitted.",
+    )
+    shell_startup_parser.add_argument(
+        "--rc-file",
+        default=None,
+        dest="rc_file",
+        help="Override the startup file path.",
+    )
+    shell_startup_parser.add_argument("--dry-run", action="store_true")
+    shell_startup_parser.add_argument("--remove", action="store_true", help="Remove the injected line instead of adding it.")
+
     return parser
 
 
@@ -166,6 +220,7 @@ def _prompt_scope(message: str, *, default: Scope = Scope.USER) -> Scope:
 
 
 def _render_report(report: object) -> None:
+    import json
     print(json.dumps(report, indent=2))
 
 
@@ -173,10 +228,23 @@ def _configure_logging(level_name: str) -> None:
     logging.basicConfig(level=LOG_LEVELS[level_name], format="%(levelname)s: %(message)s", force=True)
 
 
+def _init_theme(args: argparse.Namespace) -> None:
+    if getattr(args, "no_color", False):
+        t.disable()
+        return
+    try:
+        config = load_config()
+        t.apply_config(config.display.color)
+    except Exception:
+        pass
+
+
 def _print_diagnostics(args: argparse.Namespace) -> int:
+    from pathkeeper.core.diagnostics import doctor_recommendations, explain_entry
     logger.info("Running %s for scope=%s", args.command, args.scope)
     scope = _scope(args.scope)
     _snapshot, report = _read_current_report(scope)
+    explain = args.command == "doctor" and getattr(args, "explain", False)
     if args.as_json:
         payload = {
             "summary": report.summary.__dict__,
@@ -192,29 +260,55 @@ def _print_diagnostics(args: argparse.Namespace) -> int:
         entries = [entry for entry in entries if entry.is_duplicate]
     for entry in entries:
         if entry.is_empty:
-            marker = "!"
+            raw_marker = "!"
+            is_ok = False
+            is_warn = False
         elif entry.is_duplicate:
-            marker = "D"
+            raw_marker = "D"
+            is_ok = False
+            is_warn = True
         elif not entry.exists:
-            marker = "x"
+            raw_marker = "x"
+            is_ok = False
+            is_warn = False
         elif not entry.is_dir:
-            marker = "~"
+            raw_marker = "~"
+            is_ok = False
+            is_warn = False
         else:
-            marker = "ok"
-        arrow = " -> var" if entry.has_unexpanded_vars else ""
-        duplicate = f" dup-of #{entry.duplicate_of}" if entry.duplicate_of is not None else ""
-        print(f"{entry.index:>3}. [{marker}] ({entry.scope.value}) {entry.value}{duplicate}{arrow}")
+            raw_marker = "ok"
+            is_ok = True
+            is_warn = False
+        arrow = t.dim(" -> var") if entry.has_unexpanded_vars else ""
+        duplicate = t.warn(f" dup-of #{entry.duplicate_of}") if entry.duplicate_of is not None else ""
+        colored_marker = t.marker(f"[{raw_marker}]", ok=is_ok, warn=is_warn)
+        colored_value = t.path_entry(
+            entry.value,
+            exists=entry.exists,
+            duplicate=entry.is_duplicate,
+            empty=entry.is_empty,
+            is_file=entry.exists and not entry.is_dir,
+        )
+        scope_label = t.dim(f"({entry.scope.value})")
+        print(f"{t.dim(f'{entry.index:>3}.')} {colored_marker} {scope_label} {colored_value}{duplicate}{arrow}")
+        if explain and not (entry.exists and entry.is_dir and not entry.is_duplicate and not entry.is_empty):
+            explanation = explain_entry(entry, report.os_name)
+            print(f"       {t.dim(explanation)}")
     print()
-    print(
-        f"Entries: {report.summary.total} | valid: {report.summary.valid} | invalid: {report.summary.invalid} | "
-        f"duplicates: {report.summary.duplicates} | empty: {report.summary.empty}"
+    summary = (
+        f"Entries: {report.summary.total}  "
+        f"valid: {t.ok(str(report.summary.valid))}  "
+        f"invalid: {t.error(str(report.summary.invalid)) if report.summary.invalid else t.dim('0')}  "
+        f"duplicates: {t.warn(str(report.summary.duplicates)) if report.summary.duplicates else t.dim('0')}  "
+        f"empty: {t.warn(str(report.summary.empty)) if report.summary.empty else t.dim('0')}"
     )
+    print(summary)
     for warning in report.summary.warnings:
-        print(f"Warning: {warning}")
+        print(t.warn(f"Warning: {warning}"))
     if args.command == "doctor":
         print()
         for recommendation in doctor_recommendations(report):
-            print(f"- {recommendation}")
+            print(f"  {t.accent('-')} {recommendation}")
     return 0
 
 
@@ -223,9 +317,10 @@ def _backup_now(*, tag: str, note: str, quiet: bool, force: bool = False) -> int
     config = load_config()
     adapter = get_platform_adapter(config)
     snapshot = read_snapshot(adapter)
-    destination = create_backup(
+    backup_dir = backups_home()
+    destination, all_records = create_backup(
         snapshot,
-        backup_dir=backups_home(),
+        backup_dir=backup_dir,
         os_name=normalized_os_name(),
         tag=tag,
         note=note,
@@ -233,9 +328,9 @@ def _backup_now(*, tag: str, note: str, quiet: bool, force: bool = False) -> int
     )
     if destination is None:
         return 0
-    prune_backups(backups_home(), config)
+    prune_backups(backup_dir, config, all_records)
     if not quiet:
-        print(f"Created backup: {destination}")
+        print(t.ok(f"Created backup: {destination}"))
     return 0
 
 
@@ -244,14 +339,14 @@ def _backup_command(args: argparse.Namespace) -> int:
         config = load_config()
         adapter = get_platform_adapter(config)
         snapshot = read_snapshot(adapter)
-        records = list_backups(backups_home())
-        if not args.force and records and records[0].snapshot == snapshot and records[0].os_name == normalized_os_name():
-            print("Dry run: backup would be skipped because the current PATH matches the latest saved backup.")
+        latest = _load_latest_backup(backups_home())
+        if not args.force and latest is not None and latest.snapshot == snapshot and latest.os_name == normalized_os_name():
+            print(t.dry_run("Dry run: backup would be skipped because the current PATH matches the latest saved backup."))
             return 0
         preview_name = backup_filename(datetime.now(UTC), args.tag)
-        print(f"Dry run: would create backup at {backups_home() / preview_name}")
+        print(t.dry_run(f"Dry run: would create backup at {backups_home() / preview_name}"))
         if args.note:
-            print(f"Note: {args.note}")
+            print(t.dry_run(f"Note: {args.note}"))
         return 0
     return _backup_now(tag=args.tag, note=args.note, quiet=args.quiet, force=args.force)
 
@@ -266,6 +361,7 @@ def _recent_backups(*, limit: int = 20) -> list[BackupRecord]:
 
 
 def _render_backup_listing(records: list[BackupRecord], *, numbered: bool) -> None:
+    from pytable_formatter import Table  # type: ignore[import-untyped]
     headers = ["Backup", "Timestamp", "Tag", "Hash", "Host", "OS", "System", "User", "Note"]
     if numbered:
         headers.insert(0, "#")
@@ -289,6 +385,7 @@ def _render_backup_listing(records: list[BackupRecord], *, numbered: bool) -> No
 
 
 def _read_current_report(scope: Scope) -> tuple[PathSnapshot, DiagnosticReport]:
+    from pathkeeper.core.diagnostics import analyze_snapshot
     config = load_config()
     adapter = get_platform_adapter(config)
     snapshot = read_snapshot(adapter)
@@ -306,14 +403,19 @@ def _print_interactive_startup_banner() -> None:
     backup_dir = backups_home()
     backup_count = len(list_backups(backup_dir))
     _snapshot, report = _read_current_report(Scope.ALL)
-    print(f"Backups: {backup_dir} ({backup_count} saved)")
-    print(
-        "Inspect summary: "
-        f"entries={report.summary.total} valid={report.summary.valid} invalid={report.summary.invalid} "
-        f"duplicates={report.summary.duplicates} empty={report.summary.empty}"
-    )
-    for warning in report.summary.warnings:
-        print(f"Warning: {warning}")
+    s = report.summary
+    health = t.ok("healthy") if s.invalid == 0 and s.duplicates == 0 and s.empty == 0 else t.warn("needs attention")
+    print(t.header(f"pathkeeper") + t.dim(f"  {backup_count} backup(s) in {backup_dir}"))
+    parts = [
+        f"entries={s.total}",
+        t.ok(f"valid={s.valid}"),
+        (t.error if s.invalid else t.dim)(f"invalid={s.invalid}"),
+        (t.warn if s.duplicates else t.dim)(f"dup={s.duplicates}"),
+        (t.warn if s.empty else t.dim)(f"empty={s.empty}"),
+    ]
+    print(t.dim("PATH  ") + "  ".join(parts) + "  " + health)
+    for warning in s.warnings:
+        print(t.warn(f"  ! {warning}"))
     print()
 
 
@@ -380,6 +482,7 @@ def _show_backup(args: argparse.Namespace) -> int:
 
 
 def _snapshot_with_scope(snapshot: PathSnapshot, scope: Scope, entries: list[str], os_name: str) -> PathSnapshot:
+    from pathkeeper.core.diagnostics import join_path
     return snapshot.with_scope_entries(scope, entries, join_path(entries, os_name))
 
 
@@ -412,6 +515,7 @@ def _position_number(value: str) -> int:
 
 
 def _render_edit_session(entries: list[str], *, scope: Scope, os_name: str) -> None:
+    from pathkeeper.core.diagnostics import analyze_snapshot, join_path
     report = analyze_snapshot(
         system_entries=entries if scope is Scope.SYSTEM else [],
         user_entries=entries if scope is Scope.USER else [],
@@ -464,6 +568,8 @@ def _preflight_write(current: PathSnapshot, updated: PathSnapshot, scope: Scope,
 
 
 def _restore(args: argparse.Namespace) -> int:
+    from pathkeeper.core.diff import compute_diff, render_diff
+    from pathkeeper.core.path_writer import write_changed_snapshot
     logger.info("Restoring PATH from backup %s with scope=%s", args.identifier, args.scope)
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -491,6 +597,11 @@ def _restore(args: argparse.Namespace) -> int:
 
 
 def _dedupe(args: argparse.Namespace) -> int:
+    from pathkeeper.core.dedupe import dedupe_entries
+    from pathkeeper.core.diagnostics import join_path
+    from pathkeeper.core.diff import compute_diff, render_diff
+    from pathkeeper.core.path_writer import write_changed_snapshot
+    from pathkeeper.models import PathSnapshot
     logger.info("Deduping PATH with scope=%s keep=%s remove_invalid=%s", args.scope, args.keep, args.remove_invalid)
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -502,9 +613,9 @@ def _dedupe(args: argparse.Namespace) -> int:
         user_result = dedupe_entries(snapshot.user_path, os_name, keep=args.keep, remove_invalid=args.remove_invalid)
         system_diff = render_diff(compute_diff(system_result.original, system_result.cleaned, os_name))
         user_diff = render_diff(compute_diff(user_result.original, user_result.cleaned, os_name))
-        print("System diff:")
+        print(t.bold("System diff:"))
         print(system_diff)
-        print("\nUser diff:")
+        print(t.bold("\nUser diff:"))
         print(user_diff)
         if args.dry_run:
             return 0
@@ -519,7 +630,7 @@ def _dedupe(args: argparse.Namespace) -> int:
         _confirm("Apply dedupe changes?", force=args.force)
         write_changed_snapshot(adapter, snapshot, updated, scope)
         logger.info("Dedupe complete for scope=%s", args.scope)
-        print("Dedupe complete.")
+        print(t.ok("Dedupe complete."))
         return 0
     original = snapshot.entries_for_scope(scope)
     result = dedupe_entries(original, os_name, keep=args.keep, remove_invalid=args.remove_invalid)
@@ -532,11 +643,51 @@ def _dedupe(args: argparse.Namespace) -> int:
     _confirm("Apply dedupe changes?", force=args.force)
     write_changed_snapshot(adapter, snapshot, updated, scope)
     logger.info("Dedupe complete for scope=%s", args.scope)
-    print("Dedupe complete.")
+    print(t.ok("Dedupe complete."))
     return 0
 
 
+def _populate_select_interactive(grouped: dict[str, list]) -> list:
+    """Prompt category-by-category; return chosen PopulateMatch list."""
+    selected = []
+    categories = list(grouped.keys())
+    total = sum(len(v) for v in grouped.values())
+    print(t.dim(f"Found {total} path(s) across {len(categories)} category/categories.") + "\n")
+    hint = t.dim("  [a]ll in category  [s]kip  [q]uit  or numbers e.g. '1 3'")
+    for cat in categories:
+        items = grouped[cat]
+        print(t.category(f"  {cat}"))
+        for i, item in enumerate(items, 1):
+            print(f"    {t.dim(str(i) + '.')} {t.accent(item.path)}  {t.dim('(' + item.name + ')')}")
+        print(hint)
+        while True:
+            answer = input(t.prompt("  > ")).strip().lower()
+            if answer in {"a", "all", "y", "yes"}:
+                selected.extend(items)
+                print(t.ok(f"  + All {len(items)} item(s) from '{cat}' selected.") + "\n")
+                break
+            if answer in {"s", "skip", "", "n", "no"}:
+                print(t.dim(f"  Skipped '{cat}'.") + "\n")
+                break
+            if answer in {"q", "quit"}:
+                raise UserCancelledError("Populate cancelled.")
+            # numeric selection
+            try:
+                indices = [int(tok) - 1 for tok in answer.split()]
+                if all(0 <= idx < len(items) for idx in indices):
+                    chosen = [items[idx] for idx in indices]
+                    selected.extend(chosen)
+                    print(t.ok(f"  + {len(chosen)} item(s) from '{cat}' selected.") + "\n")
+                    break
+            except ValueError:
+                pass
+            print(t.warn(f"  Invalid input. Enter 'a', 's', numbers (1-{len(items)}), or 'q'."))
+    return selected
+
+
 def _populate(args: argparse.Namespace) -> int:
+    from pathkeeper.core.path_writer import write_changed_snapshot
+    from pathkeeper.core.populate import discover_tools, group_matches, load_catalog
     logger.info("Populating PATH for scope=%s category=%s", args.scope, args.category or "all")
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -550,28 +701,39 @@ def _populate(args: argparse.Namespace) -> int:
     matches = discover_tools(catalog, existing, os_name=normalized_os_name(), category=args.category)
     if not matches:
         logger.info("No populate matches found.")
-        print("No missing tool directories found.")
+        print(t.ok("No missing tool directories found."))
         return 0
     logger.info("Found %s populate match(es).", len(matches))
-    for category, items in group_matches(matches).items():
-        print(category)
+    grouped = group_matches(matches)
+    for cat, items in grouped.items():
+        print(t.category(cat))
         for item in items:
-            print(f"  - {item.path} ({item.name})")
-    selected = matches if args.all else matches
-    selected_paths = [item.path for item in selected]
+            print(f"  {t.dim('-')} {t.accent(item.path)} {t.dim('(' + item.name + ')')}")
     if args.dry_run:
+        print(t.dry_run("[dry-run] No changes written."))
         return 0
+    if args.all:
+        selected = matches
+    elif args.force:
+        selected = matches
+    else:
+        print()
+        selected = _populate_select_interactive(grouped)
+    if not selected:
+        print(t.dim("Nothing selected. PATH unchanged."))
+        return 0
+    selected_paths = [item.path for item in selected]
     updated = _snapshot_with_scope(snapshot, scope, [*snapshot.entries_for_scope(scope), *selected_paths], normalized_os_name())
     _preflight_write(snapshot, updated, scope, adapter)
     _backup_now(tag="pre-populate", note="Before populate", quiet=False)
-    _confirm("Add discovered entries?", force=args.force or args.all)
     write_changed_snapshot(adapter, snapshot, updated, scope)
-    logger.info("Populate complete for scope=%s", args.scope)
-    print("Populate complete.")
+    logger.info("Populate complete for scope=%s: added %d path(s).", args.scope, len(selected_paths))
+    print(t.ok(f"Populate complete. Added {len(selected_paths)} path(s)."))
     return 0
 
 
 def _scope_has_dedupe_changes(entries: list[str], *, os_name: str, keep: str, remove_invalid: bool) -> bool:
+    from pathkeeper.core.dedupe import dedupe_entries
     result = dedupe_entries(entries, os_name, keep=keep, remove_invalid=remove_invalid)
     return result.original != result.cleaned
 
@@ -619,6 +781,11 @@ def _select_truncated_repairs(
 
 
 def _repair_truncated(args: argparse.Namespace) -> int:
+    from pathkeeper.core.diagnostics import join_path
+    from pathkeeper.core.diff import compute_diff, render_diff
+    from pathkeeper.core.path_writer import write_changed_snapshot
+    from pathkeeper.core.repair_truncated import find_truncated_repairs
+    from pathkeeper.models import PathSnapshot
     logger.info("Repairing truncated PATH entries for scope=%s", args.scope)
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -728,6 +895,8 @@ def _write_edit_session(
     session: EditSession,
     snapshot: PathSnapshot,
 ) -> int:
+    from pathkeeper.core.diff import render_diff
+    from pathkeeper.core.path_writer import write_changed_snapshot
     diff = session.diff()
     print(render_diff(diff))
     if diff.added == [] and diff.removed == [] and diff.reordered == []:
@@ -747,6 +916,9 @@ def _write_edit_session(
 
 
 def _interactive_edit(args: argparse.Namespace) -> int:
+    import shlex
+    from pathkeeper.core.diff import render_diff
+    from pathkeeper.core.edit import EditSession
     logger.info("Starting interactive edit session")
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -829,6 +1001,7 @@ def _interactive_edit(args: argparse.Namespace) -> int:
 
 
 def _edit(args: argparse.Namespace) -> int:
+    from pathkeeper.core.edit import EditSession
     logger.info("Editing PATH for scope=%s", args.scope)
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -862,6 +1035,7 @@ def _edit(args: argparse.Namespace) -> int:
 
 
 def _schedule(args: argparse.Namespace) -> int:
+    from pathkeeper.core.schedule import install_schedule, remove_schedule, schedule_status
     os_name = normalized_os_name()
     if args.schedule_command == "status":
         status = schedule_status(os_name)
@@ -892,6 +1066,7 @@ def _schedule(args: argparse.Namespace) -> int:
 
 
 def _interactive_schedule_status(args: argparse.Namespace) -> int:
+    from pathkeeper.core.schedule import schedule_status
     os_name = normalized_os_name()
     status = schedule_status(os_name)
     if status.enabled:
@@ -920,7 +1095,205 @@ def _interactive_schedule_status(args: argparse.Namespace) -> int:
             return 0
 
 
+def _diff(args: argparse.Namespace) -> int:
+    from pathkeeper.core.diff import compute_diff, render_diff
+    os_name = normalized_os_name()
+    scope = _scope(args.scope)
+    records = list_backups(backups_home())
+    if not records:
+        raise PathkeeperError("No backups available.")
+
+    def _resolve(identifier: str) -> BackupRecord:
+        if identifier.isdigit():
+            idx = int(identifier) - 1
+            if idx < 0 or idx >= len(records[:20]):
+                raise PathkeeperError(f"Backup number out of range: {identifier}")
+            return records[idx]
+        return resolve_backup(identifier, backups_home())
+
+    record_a = _resolve(args.backup_a)
+    record_b = _resolve(args.backup_b)
+    name_a = record_a.source_file.name if record_a.source_file else args.backup_a
+    name_b = record_b.source_file.name if record_b.source_file else args.backup_b
+    print(t.dim(f"Comparing {name_a}  ->  {name_b}"))
+    print()
+    if scope in {Scope.SYSTEM, Scope.ALL}:
+        diff = compute_diff(record_a.system_path, record_b.system_path, os_name)
+        print(t.bold("System PATH:"))
+        print(render_diff(diff))
+        print()
+    if scope in {Scope.USER, Scope.ALL}:
+        diff = compute_diff(record_a.user_path, record_b.user_path, os_name)
+        print(t.bold("User PATH:"))
+        print(render_diff(diff))
+    return 0
+
+
+_SHELL_STARTUP_MARKER = "# pathkeeper backup (added by pathkeeper shell-startup)"
+_SHELL_STARTUP_LINE = "pathkeeper backup --quiet --tag auto"
+
+
+def _detect_shell_rc() -> tuple[str, str] | None:
+    """Return (shell_name, rc_file_path) for the running shell, or None."""
+    import os as _os
+
+    # Git Bash / MSYS2 / Cygwin all set SHELL to something like /usr/bin/bash
+    shell_env = _os.environ.get("SHELL", "")
+    if "fish" in shell_env:
+        rc = _os.path.expanduser("~/.config/fish/config.fish")
+        return ("fish", rc)
+    if "bash" in shell_env:
+        rc = _os.path.expanduser("~/.bashrc")
+        return ("bash", rc)
+    if "zsh" in shell_env:
+        rc = _os.path.expanduser("~/.zshrc")
+        return ("zsh", rc)
+    # Windows: fall back to PowerShell profile
+    profile_env = _os.environ.get("USERPROFILE", _os.path.expanduser("~"))
+    pwsh_profile = _os.path.join(
+        profile_env,
+        "Documents",
+        "WindowsPowerShell",
+        "Microsoft.PowerShell_profile.ps1",
+    )
+    return ("powershell", pwsh_profile)
+
+
+def _shell_startup_rc_for(shell: str | None) -> tuple[str, str]:
+    import os as _os
+
+    if shell == "fish":
+        return ("fish", _os.path.expanduser("~/.config/fish/config.fish"))
+    if shell in {"bash", None}:
+        return ("bash", _os.path.expanduser("~/.bashrc"))
+    if shell == "zsh":
+        return ("zsh", _os.path.expanduser("~/.zshrc"))
+    if shell in {"powershell", "pwsh"}:
+        profile = _os.path.join(
+            _os.environ.get("USERPROFILE", _os.path.expanduser("~")),
+            "Documents",
+            "WindowsPowerShell",
+            "Microsoft.PowerShell_profile.ps1",
+        )
+        return ("powershell", profile)
+    raise PathkeeperError(f"Unknown shell: {shell!r}")
+
+
+def _shell_startup_backup_line(shell_name: str) -> str:
+    if shell_name == "fish":
+        return f"{_SHELL_STARTUP_LINE}  # {_SHELL_STARTUP_MARKER}"
+    if shell_name in {"bash", "zsh"}:
+        return f"{_SHELL_STARTUP_LINE}  {_SHELL_STARTUP_MARKER}"
+    # PowerShell
+    return f"{_SHELL_STARTUP_LINE}  <# {_SHELL_STARTUP_MARKER} #>"
+
+
+def _shell_startup_already_present(text: str) -> bool:
+    return _SHELL_STARTUP_MARKER in text
+
+
+def _shell_startup(args: argparse.Namespace) -> int:
+    import os as _os
+    from pathlib import Path as _Path
+
+    if args.rc_file:
+        shell_name = args.shell or "bash"
+        rc_file = _os.path.expanduser(args.rc_file)
+    else:
+        shell_name, rc_file = _shell_startup_rc_for(args.shell)
+
+    rc_path = _Path(rc_file)
+    existing_text = rc_path.read_text(encoding="utf-8") if rc_path.exists() else ""
+    injection_line = _shell_startup_backup_line(shell_name)
+
+    if args.remove:
+        if not _shell_startup_already_present(existing_text):
+            print(t.dim(f"Marker not found in {rc_file}. Nothing to remove."))
+            return 0
+        lines = existing_text.splitlines(keepends=True)
+        new_lines = [ln for ln in lines if _SHELL_STARTUP_MARKER not in ln]
+        new_text = "".join(new_lines)
+        if args.dry_run:
+            print(t.dry_run(f"[dry-run] Would remove pathkeeper startup line from {rc_file}"))
+            return 0
+        rc_path.write_text(new_text, encoding="utf-8")
+        print(t.ok(f"Removed pathkeeper startup line from {rc_file}."))
+        return 0
+
+    if _shell_startup_already_present(existing_text):
+        print(t.dim(f"Pathkeeper startup line is already present in {rc_file}."))
+        return 0
+
+    new_text = existing_text.rstrip("\n") + f"\n{injection_line}\n"
+    if args.dry_run:
+        print(t.dry_run(f"[dry-run] Would append to {rc_file}:"))
+        print(t.dry_run(f"  {injection_line}"))
+        return 0
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text(new_text, encoding="utf-8")
+    print(t.ok(f"Added startup backup to {rc_file}."))
+    print(t.dim("Pathkeeper will run 'backup --quiet' each time you open a new shell session."))
+    if shell_name == "fish":
+        print(t.dim("Re-open your terminal or run 'source ~/.config/fish/config.fish' to activate."))
+    elif shell_name == "zsh":
+        print(t.dim("Re-open your terminal or run 'source ~/.zshrc' to activate."))
+    else:
+        print(t.dim("Re-open your terminal or run 'source ~/.bashrc' (bash) to activate."))
+    return 0
+
+
+def _first_run_wizard() -> int:
+    """Interactive onboarding for new users (no ~/.pathkeeper/ found)."""
+    from pathkeeper.config import app_home, ensure_app_state
+    print(t.header("Welcome to pathkeeper!"))
+    print()
+    print("pathkeeper backs up and restores your PATH environment variable.")
+    print("It looks like this is your first time running pathkeeper.")
+    print()
+
+    # Step 1: Initialize app state
+    print(t.accent("Setting up pathkeeper..."))
+    ensure_app_state()
+    print(t.ok("  Created ~/.pathkeeper/ with default config and tool catalog."))
+    print()
+
+    # Step 2: PATH health check
+    print(t.accent("Checking your current PATH..."))
+    _snapshot, report = _read_current_report(Scope.ALL)
+    s = report.summary
+    health = t.ok("healthy") if s.invalid == 0 and s.duplicates == 0 and s.empty == 0 else t.warn("needs attention")
+    print(f"  {s.total} entries  {t.ok(f'valid: {s.valid}')}  "
+          f"{(t.error if s.invalid else t.dim)(f'invalid: {s.invalid}')}  "
+          f"{(t.warn if s.duplicates else t.dim)(f'dup: {s.duplicates}')}  "
+          f"— {health}")
+    for warning in s.warnings:
+        print(t.warn(f"  ! {warning}"))
+    print()
+
+    # Step 3: Create first backup
+    if _prompt_yes_no("Create your first backup now?", default=True):
+        _backup_now(tag="manual", note="first backup (created by onboarding wizard)", quiet=False)
+        print()
+
+    # Step 4: Shell startup hook
+    detected = _detect_shell_rc()
+    if detected:
+        shell_name, rc_file = detected
+        if _prompt_yes_no(f"Install startup hook into {rc_file}?", default=True):
+            import argparse as _ap
+            _shell_startup(_ap.Namespace(
+                shell=shell_name, rc_file=None, dry_run=False, remove=False,
+            ))
+            print()
+
+    # Step 5: Done
+    print(t.ok("Setup complete!"))
+    print(t.dim("Run 'pathkeeper' again to open the main menu."))
+    return 0
+
+
 def _interactive() -> int:
+    from pathkeeper.interactive import MenuEntry, run_interactive
     parser = build_parser()
     restore_handler: MenuHandler
     def list_backups_handler(_args: argparse.Namespace) -> int:
@@ -951,6 +1324,7 @@ def _interactive() -> int:
         "9": MenuEntry("Edit", "Stage PATH changes in an editor", parser.parse_args(["edit"]), _edit),
         "10": MenuEntry("Repair truncated", "Repair entries missing leading path segments", parser.parse_args(["repair-truncated"]), _repair_truncated),
         "11": MenuEntry("Schedule status", "Check or install automatic backups", parser.parse_args(["schedule", "status"]), _interactive_schedule_status),
+        "12": MenuEntry("Shell startup", "Inject backup hook into shell startup file", parser.parse_args(["shell-startup"]), _shell_startup),
     }
     _print_interactive_startup_banner()
     return run_interactive(dispatch)
@@ -958,9 +1332,18 @@ def _interactive() -> int:
 
 def run(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
+    try:
+        import argcomplete  # type: ignore[import-not-found]
+        argcomplete.autocomplete(parser)
+    except ImportError:
+        pass
     args = parser.parse_args(list(argv) if argv is not None else None)
     _configure_logging(args.log_level)
+    _init_theme(args)
     if args.command is None:
+        from pathkeeper.config import app_home
+        if not app_home().exists():
+            return _first_run_wizard()
         return _interactive()
     if args.command in {"inspect", "doctor"}:
         return _print_diagnostics(args)
@@ -983,6 +1366,10 @@ def run(argv: Sequence[str] | None = None) -> int:
         return _edit(args)
     if args.command == "schedule":
         return _schedule(args)
+    if args.command == "diff":
+        return _diff(args)
+    if args.command == "shell-startup":
+        return _shell_startup(args)
     raise PathkeeperError(f"Unknown command: {args.command}")
 
 

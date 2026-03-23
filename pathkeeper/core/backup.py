@@ -20,6 +20,14 @@ def backup_filename(timestamp: datetime, tag: str) -> str:
     return f"{timestamp.strftime('%Y-%m-%dT%H-%M-%S')}_{tag}.json"
 
 
+def _load_latest_backup(backup_dir: Path) -> BackupRecord | None:
+    """Load only the most recent backup file without reading the rest."""
+    paths = _sorted_backup_paths(backup_dir)
+    if not paths:
+        return None
+    return load_backup(paths[0])
+
+
 def create_backup(
     snapshot: PathSnapshot,
     *,
@@ -28,7 +36,13 @@ def create_backup(
     tag: str,
     note: str,
     force: bool = False,
-) -> Path | None:
+) -> tuple[Path | None, list[BackupRecord] | None]:
+    """Create a backup and return (destination_path, loaded_records).
+
+    loaded_records is the full sorted backup list when it was needed for
+    pruning (i.e. a new backup was written); None when skipped.  Callers
+    can pass it straight to prune_backups() to avoid re-reading the dir.
+    """
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC)
     record = BackupRecord(
@@ -43,10 +57,10 @@ def create_backup(
         system_path_raw=snapshot.system_path_raw,
         user_path_raw=snapshot.user_path_raw,
     )
-    existing = list_backups(backup_dir)
-    if not force and existing and existing[0].snapshot == snapshot and existing[0].os_name == os_name:
+    latest = _load_latest_backup(backup_dir)
+    if not force and latest is not None and latest.snapshot == snapshot and latest.os_name == os_name:
         logger.warning("Skipping backup because the current PATH matches the latest saved backup.")
-        return None
+        return None, None
     logger.info("Creating %s backup in %s", tag, backup_dir)
     destination = backup_dir / backup_filename(timestamp, tag)
     suffix = 1
@@ -55,7 +69,9 @@ def create_backup(
         suffix += 1
     destination.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
     logger.info("Created backup at %s", destination)
-    return destination
+    # Re-read the full list now that we've written the new file (needed for pruning).
+    all_records = list_backups(backup_dir)
+    return destination, all_records
 
 
 def load_backup(path: Path) -> BackupRecord:
@@ -88,11 +104,15 @@ def backup_content_hash(record: BackupRecord) -> str:
     return digest[:12]
 
 
+def _sorted_backup_paths(backup_dir: Path) -> list[Path]:
+    """Return backup JSON paths sorted newest-first by filename (ISO timestamp prefix)."""
+    return sorted(backup_dir.glob("*.json"), key=lambda p: p.name, reverse=True)
+
+
 def list_backups(backup_dir: Path) -> list[BackupRecord]:
     if not backup_dir.exists():
         return []
-    records = [load_backup(path) for path in backup_dir.glob("*.json")]
-    return sorted(records, key=lambda item: item.timestamp, reverse=True)
+    return [load_backup(path) for path in _sorted_backup_paths(backup_dir)]
 
 
 def resolve_backup(identifier: str, backup_dir: Path) -> BackupRecord:
@@ -107,8 +127,9 @@ def resolve_backup(identifier: str, backup_dir: Path) -> BackupRecord:
     raise BackupNotFoundError(f"Backup not found: {identifier}")
 
 
-def prune_backups(backup_dir: Path, config: AppConfig) -> None:
-    records = list_backups(backup_dir)
+def prune_backups(backup_dir: Path, config: AppConfig, records: list[BackupRecord] | None = None) -> None:
+    if records is None:
+        records = list_backups(backup_dir)
     auto_records = [record for record in records if record.tag == "auto"]
     manual_records = [record for record in records if record.tag == "manual"]
     keep: set[Path] = set()

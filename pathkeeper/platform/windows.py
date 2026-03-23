@@ -27,14 +27,25 @@ class WindowsPlatform:
     def __init__(self) -> None:
         if winreg is None:
             self._fallback_raw = os.environ.get("PATH", "")
+        self._registry_cache: dict[str, tuple[list[str], str]] = {}
 
+    # Registry reads are cached per-instance so that read_system_path() and
+    # read_system_path_raw() (and the user equivalents) each open the key once
+    # rather than twice.  The cache is intentionally not invalidated — a
+    # PathSnapshot is a point-in-time object and the adapter is created fresh
+    # for each command invocation.
     def _read_registry(self, root: Any, key_name: str) -> tuple[list[str], str]:
+        if key_name in self._registry_cache:
+            return self._registry_cache[key_name]
         if winreg is None:
-            return split_path(self._fallback_raw, self.os_name), self._fallback_raw
-        with winreg.OpenKey(root, key_name) as key:
-            value, _value_type = winreg.QueryValueEx(key, REG_PATH_VALUE)
-        raw = str(value)
-        return split_path(raw, self.os_name), raw
+            result: tuple[list[str], str] = (split_path(self._fallback_raw, self.os_name), self._fallback_raw)
+        else:
+            with winreg.OpenKey(root, key_name) as key:
+                value, _value_type = winreg.QueryValueEx(key, REG_PATH_VALUE)
+            raw = str(value)
+            result = (split_path(raw, self.os_name), raw)
+        self._registry_cache[key_name] = result
+        return result
 
     def read_system_path(self) -> list[str]:
         return self._read_registry(winreg.HKEY_LOCAL_MACHINE if winreg else object(), SYSTEM_KEY)[0]

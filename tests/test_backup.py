@@ -30,8 +30,8 @@ def _write_backup(path: Path, *, timestamp: str, tag: str) -> None:
 
 def test_create_backup_uses_unique_filenames(tmp_path: Path) -> None:
     snapshot = PathSnapshot(["/usr/bin"], ["/home/test/bin"], "/usr/bin", "/home/test/bin")
-    first = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="", force=True)
-    second = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="", force=True)
+    first, _ = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="", force=True)
+    second, _ = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="", force=True)
     assert first != second
     assert len(list(tmp_path.glob("*.json"))) == 2
 
@@ -40,8 +40,9 @@ def test_create_backup_skips_identical_latest_snapshot(tmp_path: Path, caplog: p
     snapshot = PathSnapshot(["/usr/bin"], ["/home/test/bin"], "/usr/bin", "/home/test/bin")
     create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
     with caplog.at_level(logging.WARNING):
-        skipped = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
-    assert skipped is None
+        skipped_path, skipped_records = create_backup(snapshot, backup_dir=tmp_path, os_name="linux", tag="manual", note="")
+    assert skipped_path is None
+    assert skipped_records is None
     assert len(list(tmp_path.glob("*.json"))) == 1
     assert "Skipping backup because the current PATH matches the latest saved backup." in caplog.text
 
