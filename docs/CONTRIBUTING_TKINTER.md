@@ -36,11 +36,11 @@ pathkeeper/
 
 ### The three-layer rule
 
-| Layer                            | Touches the filesystem?          | Knows about tkinter? | Examples                                                        |
+| Layer | Touches the filesystem? | Knows about tkinter? | Examples |
 |----------------------------------|----------------------------------|----------------------|-----------------------------------------------------------------|
-| **Core** (`core/*`, `models.py`) | Yes (reads/writes PATH, backups) | No                   | `analyze_snapshot`, `EditSession`, `create_backup`              |
-| **Services** (`services.py`)     | Yes (loads config, calls core)   | No                   | `read_current_report`, `backup_now`, `get_snapshot_and_adapter` |
-| **GUI** (`gui/app.py`)           | No (delegates to services/core)  | Yes                  | `DashboardPanel`, `InspectPanel`, `EditPanel`                   |
+| **Core** (`core/*`, `models.py`) | Yes (reads/writes PATH, backups) | No | `analyze_snapshot`, `EditSession`, `create_backup` |
+| **Services** (`services.py`) | Yes (loads config, calls core) | No | `read_current_report`, `backup_now`, `get_snapshot_and_adapter` |
+| **GUI** (`gui/app.py`) | No (delegates to services/core) | Yes | `DashboardPanel`, `InspectPanel`, `EditPanel` |
 
 The GUI never reads or writes the PATH directly. It calls core modules
 (via the services layer when orchestration is needed) and renders the
@@ -237,14 +237,14 @@ ______________________________________________________________________
 
 ## Reusable widget helpers
 
-| Helper                                  | Returns        | Purpose                                              |
+| Helper | Returns | Purpose |
 |-----------------------------------------|----------------|------------------------------------------------------|
-| `_make_tree(parent, columns, height)`   | `ttk.Treeview` | Themed treeview with scrollbar and colour tags       |
-| `_make_output(parent, height)`          | `tk.Text`      | Read-only scrolled text area for output/diff display |
-| `_output_set(text_widget, content)`     | —              | Replace text content (handles enable/disable state)  |
-| `_make_scope_selector(parent, default)` | `tk.StringVar` | Row of radio buttons for system/user/all             |
-| `_make_toolbar(parent)`                 | `tk.Frame`     | Horizontal button bar                                |
-| `_toolbar_btn(bar, text, command)`      | `tk.Button`    | Themed button inside a toolbar                       |
+| `_make_tree(parent, columns, height)` | `ttk.Treeview` | Themed treeview with scrollbar and colour tags |
+| `_make_output(parent, height)` | `tk.Text` | Read-only scrolled text area for output/diff display |
+| `_output_set(text_widget, content)` | — | Replace text content (handles enable/disable state) |
+| `_make_scope_selector(parent, default)` | `tk.StringVar` | Row of radio buttons for system/user/all |
+| `_make_toolbar(parent)` | `tk.Frame` | Horizontal button bar |
+| `_toolbar_btn(bar, text, command)` | `tk.Button` | Themed button inside a toolbar |
 
 These helpers handle scrollbar wiring, colour configuration, and layout
 so that panel code stays focused on business logic.
@@ -255,11 +255,11 @@ ______________________________________________________________________
 
 The CLI uses `input()` for confirmations. The GUI replaces these with:
 
-| CLI pattern                                | GUI replacement                          |
+| CLI pattern | GUI replacement |
 |--------------------------------------------|------------------------------------------|
-| `_confirm("Apply?", force=flag)`           | `messagebox.askyesno("Title", "Apply?")` |
-| `_prompt_yes_no("Install?", default=True)` | `messagebox.askyesno(...)`               |
-| `input("Enter path: ")`                    | `filedialog.askdirectory(...)`           |
+| `_confirm("Apply?", force=flag)` | `messagebox.askyesno("Title", "Apply?")` |
+| `_prompt_yes_no("Install?", default=True)` | `messagebox.askyesno(...)` |
+| `input("Enter path: ")` | `filedialog.askdirectory(...)` |
 
 These are modal but do not block the tkinter event loop.
 
