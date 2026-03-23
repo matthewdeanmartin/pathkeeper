@@ -7,7 +7,7 @@ name = "pathkeeper"
 version = "0.1.0"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "pytable-formatter>=0.1.1",
 ]
@@ -26,6 +26,8 @@ pathkeeper = "pathkeeper.cli:main"
 dev = [
   "mypy>=1.18.2",
   "pytest>=8.4.2",
+  "tox>=4.0",
+  "tox-uv>=1.0",
 ]
 
 [tool.pytest.ini_options]
@@ -42,4 +44,19 @@ packages = ["pathkeeper", "tests"]
 
 [tool.uv]
 default-groups = ["dev"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+min_version = 4.0
+env_list = py313, py314, py315
+
+[testenv]
+deps =
+    pytest>=8.4.2
+    mypy>=1.18.2
+commands =
+    pytest {posargs}
+    mypy pathkeeper tests
+"""
 
