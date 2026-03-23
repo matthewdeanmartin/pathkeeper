@@ -169,7 +169,7 @@ def test_dedupe_all_skips_unchanged_system_scope(
     monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
-    exit_code = cli.run(["dedupe", "--scope", "all", "--force"])
+    exit_code = cli.run(["dedupe", "--scope", "all", "--force", "--no-remove-invalid"])
     assert exit_code == 0
     assert adapter.read_system_path() == ["C:\\Windows\\System32"]
     assert adapter.read_user_path() == [str(user_bin)]
