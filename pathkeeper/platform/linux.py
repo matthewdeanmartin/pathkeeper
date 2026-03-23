@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from pathkeeper.core.diagnostics import join_path
 from pathkeeper.errors import PermissionDeniedError
 from pathkeeper.platform.unix_common import UnixPlatformBase

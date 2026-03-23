@@ -5,15 +5,19 @@ Launch via ``pathkeeper gui`` or ``pathkeeper --gui``.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-from typing import TYPE_CHECKING
+from functools import partial
+from tkinter import filedialog, messagebox, ttk
+from typing import TYPE_CHECKING, cast
 
 from pathkeeper import __version__
 from pathkeeper.models import Scope
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from pathkeeper.core.edit import EditSession
     from pathkeeper.core.path_writer import PathWriter
     from pathkeeper.models import (
@@ -57,15 +61,26 @@ class _BackgroundRunner:
             try:
                 result = func(*args)  # type: ignore[operator]
                 if on_success is not None:
-                    self._root.after(0, on_success, result)  # type: ignore[arg-type]
+                    with contextlib.suppress(RuntimeError):
+                        self._root.after(0, on_success, result)  # type: ignore[arg-type]
             except Exception as exc:
-                if on_error is not None:
-                    self._root.after(0, on_error, exc)  # type: ignore[arg-type]
-                else:
-                    self._root.after(0, lambda: messagebox.showerror("Error", str(exc)))
+                with contextlib.suppress(RuntimeError):
+                    if on_error is not None:
+                        self._root.after(0, on_error, exc)  # type: ignore[arg-type]
+                    else:
+                        self._root.after(
+                            0,
+                            lambda exc: messagebox.showerror("Error", str(exc)),
+                            exc,
+                        )
 
         thread = threading.Thread(target=_worker, daemon=True)
         thread.start()
+
+
+def _tree_item_values(tree: ttk.Treeview, item_id: str) -> Sequence[object]:
+    values = tree.item(item_id, "values")
+    return cast("Sequence[object]", values)
 
 
 # ── main application ─────────────────────────────────────────────────
@@ -128,7 +143,7 @@ class PathkeeperApp(tk.Tk):
                 relief=tk.FLAT,
                 bd=0,
                 cursor="hand2",
-                command=lambda k=key: self._show_panel(k),  # type: ignore[misc]
+                command=partial(self._show_panel, key),
             )
             btn.pack(fill=tk.X, padx=8, pady=2)
             self._sidebar_buttons[key] = btn
@@ -304,14 +319,14 @@ def _make_scope_selector(parent: tk.Misc, *, default: str = "all") -> tk.StringV
 
 
 def _make_toolbar(parent: tk.Misc) -> tk.Frame:
-    bar = tk.Frame(parent, bg=_CLR_BG)
-    bar.pack(fill=tk.X, padx=8, pady=4)
-    return bar
+    toolbar = tk.Frame(parent, bg=_CLR_BG)
+    toolbar.pack(fill=tk.X, padx=8, pady=4)
+    return toolbar
 
 
-def _toolbar_btn(bar: tk.Frame, text: str, command: object) -> tk.Button:
+def _toolbar_btn(toolbar: tk.Frame, text: str, command: object) -> tk.Button:
     btn = tk.Button(
-        bar,
+        toolbar,
         text=text,
         command=command,  # type: ignore[arg-type]
         font=("Segoe UI", 9),
@@ -388,8 +403,8 @@ class DashboardPanel(_BasePanel):
         )
         self._backup_label.pack(pady=4, padx=16, anchor="w")
 
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Refresh", self._load)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Refresh", self._load)
         self._load()
 
     def _load(self) -> None:
@@ -397,14 +412,14 @@ class DashboardPanel(_BasePanel):
         self._runner.run(self._fetch, on_success=self._display, on_error=self._on_error)
 
     @staticmethod
-    def _fetch() -> tuple["DiagnosticReport", int]:
+    def _fetch() -> tuple[DiagnosticReport, int]:
         from pathkeeper.services import read_current_report, recent_backups
 
         _snap, report = read_current_report(Scope.ALL)
         backup_count = len(recent_backups(limit=9999))
         return report, backup_count
 
-    def _display(self, result: tuple["DiagnosticReport", int]) -> None:
+    def _display(self, result: tuple[DiagnosticReport, int]) -> None:
         report, backup_count = result
         s = report.summary
         health = (
@@ -448,8 +463,8 @@ class InspectPanel(_BasePanel):
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Run", self._load)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Run", self._load)
 
         self._tree = _make_tree(
             self,
@@ -475,13 +490,13 @@ class InspectPanel(_BasePanel):
         )
 
     @staticmethod
-    def _fetch(scope_str: str) -> "DiagnosticReport":
+    def _fetch(scope_str: str) -> DiagnosticReport:
         from pathkeeper.services import read_current_report
 
         _snap, report = read_current_report(Scope.from_value(scope_str))
         return report
 
-    def _display(self, report: "DiagnosticReport") -> None:
+    def _display(self, report: DiagnosticReport) -> None:
         self._populate_tree(report)
         s = report.summary
         _output_set(
@@ -494,7 +509,7 @@ class InspectPanel(_BasePanel):
         )
         self._status.set("Inspect complete")
 
-    def _populate_tree(self, report: "DiagnosticReport") -> None:
+    def _populate_tree(self, report: DiagnosticReport) -> None:
         for item in self._tree.get_children():
             self._tree.delete(item)
         for entry in report.entries:
@@ -533,8 +548,8 @@ class DoctorPanel(InspectPanel):
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Diagnose", self._load)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Diagnose", self._load)
 
         self._tree = _make_tree(
             self,
@@ -549,7 +564,7 @@ class DoctorPanel(InspectPanel):
         self._summary_output = _make_output(self, height=6)
         self._load()
 
-    def _display(self, report: "DiagnosticReport") -> None:
+    def _display(self, report: DiagnosticReport) -> None:
         from pathkeeper.core.diagnostics import doctor_recommendations
 
         self._populate_tree(report)
@@ -566,7 +581,7 @@ class DoctorPanel(InspectPanel):
         self._status.set("Doctor complete")
 
 
-def _entry_display(entry: "DiagnosticEntry") -> tuple[str, str, str]:
+def _entry_display(entry: DiagnosticEntry) -> tuple[str, str, str]:
     """Return (tag, status_marker, notes) for a diagnostic entry."""
     if entry.is_empty:
         return "dim", "!", "empty"
@@ -593,11 +608,11 @@ class BackupPanel(_BasePanel):
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
 
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Refresh", self._load_list)
-        _toolbar_btn(bar, "Create Backup", self._create_backup)
-        _toolbar_btn(bar, "Show Details", self._show_selected)
-        _toolbar_btn(bar, "Restore Selected", self._restore_selected)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Refresh", self._load_list)
+        _toolbar_btn(toolbar, "Create Backup", self._create_backup)
+        _toolbar_btn(toolbar, "Show Details", self._show_selected)
+        _toolbar_btn(toolbar, "Restore Selected", self._restore_selected)
 
         # Note entry
         note_frame = tk.Frame(self, bg=_CLR_BG)
@@ -640,12 +655,12 @@ class BackupPanel(_BasePanel):
         )
 
     @staticmethod
-    def _fetch_list() -> list["BackupRecord"]:
+    def _fetch_list() -> list[BackupRecord]:
         from pathkeeper.services import recent_backups
 
         return recent_backups(limit=50)
 
-    def _display_list(self, records: list["BackupRecord"]) -> None:
+    def _display_list(self, records: list[BackupRecord]) -> None:
         from pathkeeper.core.backup import backup_content_hash
         from pathkeeper.services import format_backup_timestamp_utc
 
@@ -704,7 +719,7 @@ class BackupPanel(_BasePanel):
                 "No selection", "Select a backup from the list first."
             )
             return
-        values = self._tree.item(selection[0], "values")
+        values = _tree_item_values(self._tree, selection[0])
         identifier = str(values[1])  # filename
         self._runner.run(
             self._fetch_detail,
@@ -714,13 +729,13 @@ class BackupPanel(_BasePanel):
         )
 
     @staticmethod
-    def _fetch_detail(identifier: str) -> "BackupRecord":
+    def _fetch_detail(identifier: str) -> BackupRecord:
         from pathkeeper.services import select_backup
 
         rec, _ = select_backup(identifier)
         return rec
 
-    def _display_detail(self, rec: "BackupRecord") -> None:
+    def _display_detail(self, rec: BackupRecord) -> None:
         from pathkeeper.core.backup import backup_content_hash
         from pathkeeper.services import format_backup_timestamp_utc
 
@@ -746,7 +761,7 @@ class BackupPanel(_BasePanel):
         if not selection:
             messagebox.showwarning("No selection", "Select a backup to restore.")
             return
-        values = self._tree.item(selection[0], "values")
+        values = _tree_item_values(self._tree, selection[0])
         identifier = str(values[1])
         if not messagebox.askyesno(
             "Restore",
@@ -767,8 +782,8 @@ class BackupPanel(_BasePanel):
         from pathkeeper.core.path_writer import write_changed_snapshot
         from pathkeeper.services import (
             backup_now,
-            select_backup,
             get_snapshot_and_adapter,
+            select_backup,
         )
 
         snapshot, adapter, os_name = get_snapshot_and_adapter()
@@ -807,16 +822,16 @@ class EditPanel(_BasePanel):
         ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self, default="user")
 
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Load", self._load_session)
-        _toolbar_btn(bar, "Add", self._add_entry)
-        _toolbar_btn(bar, "Delete", self._delete_entry)
-        _toolbar_btn(bar, "Move Up", self._move_up)
-        _toolbar_btn(bar, "Move Down", self._move_down)
-        _toolbar_btn(bar, "Edit", self._edit_entry)
-        _toolbar_btn(bar, "Undo", self._undo)
-        _toolbar_btn(bar, "Preview Diff", self._preview)
-        _toolbar_btn(bar, "Write", self._write)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Load", self._load_session)
+        _toolbar_btn(toolbar, "Add", self._add_entry)
+        _toolbar_btn(toolbar, "Delete", self._delete_entry)
+        _toolbar_btn(toolbar, "Move Up", self._move_up)
+        _toolbar_btn(toolbar, "Move Down", self._move_down)
+        _toolbar_btn(toolbar, "Edit", self._edit_entry)
+        _toolbar_btn(toolbar, "Undo", self._undo)
+        _toolbar_btn(toolbar, "Preview Diff", self._preview)
+        _toolbar_btn(toolbar, "Write", self._write)
 
         self._tree = _make_tree(
             self,
@@ -860,7 +875,6 @@ class EditPanel(_BasePanel):
 
     def _init_session(self, result: tuple[object, ...]) -> None:
         from pathkeeper.core.edit import EditSession
-        from pathkeeper.core.path_writer import PathWriter
 
         snapshot, adapter, os_name, scope, entries = result
         self._snapshot = snapshot  # type: ignore[assignment]
@@ -1018,10 +1032,10 @@ class EditPanel(_BasePanel):
 
     @staticmethod
     def _do_write(
-        adapter: "PathWriter",
-        snapshot: "PathSnapshot",
+        adapter: PathWriter,
+        snapshot: PathSnapshot,
         entries: list[str],
-        scope: "Scope",
+        scope: Scope,
         os_name: str,
     ) -> str:
         from pathkeeper.core.diagnostics import join_path
@@ -1059,9 +1073,9 @@ class DedupePanel(_BasePanel):
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Preview", self._preview)
-        _toolbar_btn(bar, "Apply", self._apply)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Preview", self._preview)
+        _toolbar_btn(toolbar, "Apply", self._apply)
         self._output = _make_output(self, height=20)
 
     def _preview(self) -> None:
@@ -1165,9 +1179,9 @@ class PopulatePanel(_BasePanel):
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self, default="user")
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Discover", self._discover)
-        _toolbar_btn(bar, "Add Selected", self._add_selected)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Discover", self._discover)
+        _toolbar_btn(toolbar, "Add Selected", self._add_selected)
 
         self._tree = _make_tree(
             self,
@@ -1214,7 +1228,7 @@ class PopulatePanel(_BasePanel):
         if not selections:
             messagebox.showwarning("No selection", "Select paths to add.")
             return
-        paths = [str(self._tree.item(s, "values")[2]) for s in selections]
+        paths = [str(_tree_item_values(self._tree, s)[2]) for s in selections]
         scope_str = self._scope_var.get()
         if scope_str == "all":
             scope_str = "user"
@@ -1270,8 +1284,8 @@ class RepairPanel(_BasePanel):
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Scan", self._scan)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Scan", self._scan)
 
         self._output = _make_output(self, height=20)
         self._scan()
@@ -1335,10 +1349,10 @@ class SchedulePanel(_BasePanel):
             fg=_CLR_ACCENT,
             bg=_CLR_BG,
         ).pack(pady=(12, 4))
-        bar = _make_toolbar(self)
-        _toolbar_btn(bar, "Check Status", self._check)
-        _toolbar_btn(bar, "Install", self._install)
-        _toolbar_btn(bar, "Remove", self._remove)
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Check Status", self._check)
+        _toolbar_btn(toolbar, "Install", self._install)
+        _toolbar_btn(toolbar, "Remove", self._remove)
         self._output = _make_output(self, height=10)
         self._check()
 

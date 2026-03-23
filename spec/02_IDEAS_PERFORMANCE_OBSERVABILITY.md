@@ -3,14 +3,14 @@
 Fresh ideas generated after implementing startup benchmarking and lazy imports.
 These are exploratory, not committed requirements.
 
----
+______________________________________________________________________
 
 ## Performance ideas
 
 ### Startup skip fast-path (skip config load)
 
 The current `backup --quiet --tag auto` startup path loads config before
-checking whether PATH changed.  If we stored a hash of the last-seen PATH
+checking whether PATH changed. If we stored a hash of the last-seen PATH
 in a tiny sentinel file (`~/.pathkeeper/last_hash`), we could bail out
 before even opening `config.toml` in the common case where nothing changed.
 
@@ -28,12 +28,12 @@ Risks / considerations:
 - Could make the tool appear to "miss" a change if the sentinel is stale;
   needs a TTL or force-invalidation story
 
----
+______________________________________________________________________
 
 ### Warm-cache backup index
 
 `list_backups()` currently globs and parses every JSON file in the backup
-directory.  A small index file (`~/.pathkeeper/index.json`) that stores
+directory. A small index file (`~/.pathkeeper/index.json`) that stores
 just `{filename, timestamp, tag, hash}` per backup would let common queries
 (latest backup, recent list, duplicate check) skip full JSON parsing.
 
@@ -50,13 +50,13 @@ Risks / considerations:
 - Must be kept consistent on write; need atomic update strategy
 - Could detect staleness by comparing glob results against index entries
 
----
+______________________________________________________________________
 
 ### Lazy config singleton
 
 `load_config()` is called in `_backup_now`, `_init_theme`, and then again
-inside handlers like `_restore`, `_dedupe`, etc.  Within a single invocation
-the config never changes.  A module-level `functools.cache` on `load_config`
+inside handlers like `_restore`, `_dedupe`, etc. Within a single invocation
+the config never changes. A module-level `functools.cache` on `load_config`
 would read `config.toml` once and return the same object on repeat calls.
 
 Why it could help:
@@ -65,7 +65,7 @@ Why it could help:
 - Zero behavior change — config is immutable per invocation
 - Two-line change
 
----
+______________________________________________________________________
 
 ### `--perf` flag for startup profiling
 
@@ -78,7 +78,7 @@ Why it could help:
 - Helps users self-diagnose if startup feels slow (network drive, antivirus)
 - Pairs naturally with the benchmark suite
 
----
+______________________________________________________________________
 
 ## Observability ideas
 
@@ -86,7 +86,7 @@ Why it could help:
 
 Append a line to `~/.pathkeeper/events.jsonl` for every meaningful action:
 backup created, backup skipped, entry added, restore applied, prune removed N
-files.  Each line is a JSON object with timestamp, action, and key metadata.
+files. Each line is a JSON object with timestamp, action, and key metadata.
 
 Why it could help:
 
@@ -95,7 +95,7 @@ Why it could help:
 - Could power a future `pathkeeper log` command or dashboard widget
 - Useful for support: users can share the log instead of every backup file
 
----
+______________________________________________________________________
 
 ### Backup size and growth tracking
 
@@ -108,7 +108,7 @@ Why it could help:
 - Auto backups can quietly consume space if PATH is large or changes often
 - Pairs well with the existing `prune_backups` story
 
----
+______________________________________________________________________
 
 ### `pathkeeper status` one-liner
 
@@ -134,7 +134,7 @@ Why it could help:
 - Much faster than `inspect` or `doctor` — only reads the latest backup hash
   and skips full path analysis when PATH is unchanged
 
----
+______________________________________________________________________
 
 ### `pathkeeper doctor --ci` exit codes
 
@@ -151,7 +151,7 @@ Why it could help:
 - CI pipelines can gate on PATH health without parsing output
 - Complements the existing `--json` flag for machine consumption
 
----
+______________________________________________________________________
 
 ## Diff and change attribution ideas
 
@@ -166,7 +166,7 @@ Why it could help:
 - Useful for debugging "when did `C:\foo` appear?" by bisecting the history
 - Could detect regressions if PATH is tested on CI
 
----
+______________________________________________________________________
 
 ### Change attribution in diff output
 
@@ -180,12 +180,12 @@ Why it could help:
 - Particularly helpful for understanding what an installer changed
 - Leverages the existing backup history for free
 
----
+______________________________________________________________________
 
 ### Installer session detector
 
 Watch for rapid sequences of PATH changes (multiple changes within a short
-window) and tag them as a probable installer session.  Group the changes into
+window) and tag them as a probable installer session. Group the changes into
 one event in the log: "Installer session: added 4 entries, removed 1".
 
 Why it could help:
@@ -194,7 +194,7 @@ Why it could help:
 - Grouping makes the history easier to read
 - Could drive a "roll back this installer session" restore option
 
----
+______________________________________________________________________
 
 ## Safety and trust ideas
 
@@ -209,12 +209,12 @@ Why it could help:
 - Could catch disk corruption or accidental truncation early
 - Useful as a scheduled self-check alongside `backup --tag auto`
 
----
+______________________________________________________________________
 
 ### Backup signing (optional)
 
 Optionally sign backup files with an HMAC using a user-supplied key stored
-in the OS keychain / credential manager.  Verification confirms the file was
+in the OS keychain / credential manager. Verification confirms the file was
 not tampered with.
 
 Why it could help:
@@ -223,7 +223,7 @@ Why it could help:
 - Makes backups trustworthy for compliance or forensic scenarios
 - HMAC-SHA256 with stdlib `hmac` — no new dependencies
 
----
+______________________________________________________________________
 
 ### Dry-run default mode
 
@@ -236,7 +236,7 @@ Why it could help:
 - Particularly useful when running pathkeeper as part of a larger automation
 - Easy to override for scripted flows
 
----
+______________________________________________________________________
 
 ### Immutable backup retention window
 
@@ -249,13 +249,13 @@ Why it could help:
 - Gives users a recovery window after an installer runs
 - Complements max_auto_backups without replacing it
 
----
+______________________________________________________________________
 
 ## Integration ideas
 
 ### Git hooks integration
 
-`pathkeeper backup --tag git-pre-commit` as a git pre-commit hook.  Could be
+`pathkeeper backup --tag git-pre-commit` as a git pre-commit hook. Could be
 installed automatically via `pathkeeper git-hook install`.
 
 Why it could help:
@@ -264,7 +264,7 @@ Why it could help:
 - Particularly useful in development environments where tooling is installed frequently
 - git log provides natural context for "what was I doing when PATH changed?"
 
----
+______________________________________________________________________
 
 ### VS Code / editor extension hook
 
@@ -277,7 +277,7 @@ Why it could help:
 - Gives a backup before every session, not just every shell startup
 - Could be triggered via VS Code's `tasks.json` or a workspace setting
 
----
+______________________________________________________________________
 
 ### `pathkeeper export` for dotfiles repos
 
@@ -297,7 +297,7 @@ Why it could help:
 - Gives users a portable representation they can commit alongside their configs
 - Could include comments noting which entries were added by which tool
 
----
+______________________________________________________________________
 
 ### `pathkeeper import` from dotfiles
 
@@ -310,14 +310,14 @@ Why it could help:
 - Gives a reviewable preview before writing
 - Pairs with `populate` for a complete new-machine setup story
 
----
+______________________________________________________________________
 
 ## Quality-of-life ideas
 
 ### Interactive backup notes
 
 When running `pathkeeper backup` interactively (no `--note`), prompt for an
-optional note before writing.  Pre-fill with a timestamp and detected context
+optional note before writing. Pre-fill with a timestamp and detected context
 like "before install session" or "manual — no context detected".
 
 Why it could help:
@@ -326,7 +326,7 @@ Why it could help:
 - Users rarely remember to pass `--note` manually
 - Could detect context from recent process list (Windows) or shell history
 
----
+______________________________________________________________________
 
 ### `backups clean` dry-run preview
 
@@ -339,19 +339,19 @@ Why it could help:
 - Makes it safe to experiment with different max_backups values
 - Currently pruning happens silently as a side effect of backup
 
----
+______________________________________________________________________
 
 ### Backup diff on restore
 
 When `restore` is about to apply changes, always show the full diff before
-the confirmation prompt — not just after `--dry-run`.  Currently dry-run
+the confirmation prompt — not just after `--dry-run`. Currently dry-run
 shows the diff but the live path also shows it; this is about making the
 pre-confirm diff clearer and always present even without `--dry-run`.
 
 (This may already partially work — just flagging it as worth verifying and
 making consistent across all mutating commands.)
 
----
+______________________________________________________________________
 
 ### Configurable backup directory location
 
@@ -364,7 +364,7 @@ Why it could help:
 - OneDrive/Dropbox sync gives automatic offsite redundancy at no extra cost
 - Needed for the "restore on a new machine" story
 
----
+______________________________________________________________________
 
 ### PATH entry search
 
@@ -377,16 +377,16 @@ Why it could help:
 - Could show which backup(s) contained a now-missing entry
 - Zero additional infrastructure — just filtered inspect output
 
----
+______________________________________________________________________
 
 ## Potential next candidates
 
 If only a few of these move forward soon, these seem especially strong:
 
 1. `pathkeeper status --json` — unlocks shell prompt and CI integrations
-2. `doctor --ci` exit codes — makes CI adoption trivial
-3. Diff between two backups — high utility, low complexity
-4. Lazy config singleton — two-line win, no trade-offs
-5. Startup skip fast-path via sentinel file — biggest remaining startup win
-6. Configurable backup directory — needed for "new machine restore" story
-7. `pathkeeper export` for dotfiles — bridges two common workflows
+1. `doctor --ci` exit codes — makes CI adoption trivial
+1. Diff between two backups — high utility, low complexity
+1. Lazy config singleton — two-line win, no trade-offs
+1. Startup skip fast-path via sentinel file — biggest remaining startup win
+1. Configurable backup directory — needed for "new machine restore" story
+1. `pathkeeper export` for dotfiles — bridges two common workflows

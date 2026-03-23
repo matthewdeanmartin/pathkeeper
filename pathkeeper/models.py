@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class Scope(str, Enum):
+class Scope(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ALL = "all"
 
     @classmethod
-    def from_value(cls, value: str) -> "Scope":
+    def from_value(cls, value: str) -> Scope:
         return cls(value)
 
 
@@ -41,7 +41,7 @@ class PathSnapshot:
 
     def with_scope_entries(
         self, scope: Scope, entries: list[str], raw: str
-    ) -> "PathSnapshot":
+    ) -> PathSnapshot:
         if scope is Scope.SYSTEM:
             return PathSnapshot(entries, list(self.user_path), raw, self.user_path_raw)
         if scope is Scope.USER:

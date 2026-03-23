@@ -7,13 +7,22 @@ so no real PATH is read or written.
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Generator
-from typing import TYPE_CHECKING, Any
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from pathkeeper.models import (
+    BackupRecord,
+    DiagnosticEntry,
+    DiagnosticReport,
+    DiagnosticSummary,
+    PathSnapshot,
+    Scope,
+)
 
 # Skip the entire module if tkinter is unavailable (headless CI, etc.)
 tk = pytest.importorskip("tkinter")
@@ -21,21 +30,11 @@ tk = pytest.importorskip("tkinter")
 if TYPE_CHECKING:
     import tkinter as _tk
 
-
-from pathkeeper.models import (
-    DiagnosticEntry,
-    DiagnosticReport,
-    DiagnosticSummary,
-    PathSnapshot,
-    BackupRecord,
-    Scope,
-)
-
 # ── fixtures ──────────────────────────────────────────────────────
 
 
 @pytest.fixture()
-def root() -> Generator[_tk.Tk, None, None]:
+def root() -> Generator[_tk.Tk]:
     """Create and destroy a Tk root for each test."""
     try:
         r = tk.Tk()
@@ -107,7 +106,7 @@ def _fake_report() -> DiagnosticReport:
 def _fake_backup(*, tag: str = "manual", note: str = "") -> BackupRecord:
     return BackupRecord(
         version=1,
-        timestamp=datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC),
         hostname="testhost",
         os_name="windows",
         tag=tag,
@@ -324,13 +323,13 @@ def test_schedule_panel_creates(root: _tk.Tk) -> None:
 
 def test_app_creates(root: _tk.Tk) -> None:
     """Verify PathkeeperApp can be instantiated (uses separate Toplevel)."""
-    from pathkeeper.gui.app import PathkeeperApp, _CLR_BG  # noqa: F401
+    from pathkeeper.gui.app import _CLR_BG, PathkeeperApp  # noqa: F401
 
     patches = _mock_services()
     with patches["read_current_report"], patches["recent_backups"]:
         # PathkeeperApp is a Tk subclass; we can't create a second Tk, so
         # just test that our panel factory works with the existing root.
-        from pathkeeper.gui.app import _build_panel, _BackgroundRunner
+        from pathkeeper.gui.app import _BackgroundRunner, _build_panel
 
         runner = _BackgroundRunner(root)
         status = tk.StringVar()
@@ -341,7 +340,7 @@ def test_app_creates(root: _tk.Tk) -> None:
 
 
 def test_panel_factory_unknown_defaults_to_dashboard(root: _tk.Tk) -> None:
-    from pathkeeper.gui.app import _build_panel, _BackgroundRunner, DashboardPanel
+    from pathkeeper.gui.app import DashboardPanel, _BackgroundRunner, _build_panel
 
     patches = _mock_services()
     with patches["read_current_report"], patches["recent_backups"]:
@@ -365,7 +364,6 @@ def test_background_runner_creates(root: _tk.Tk) -> None:
 
 def test_background_runner_run_calls_func() -> None:
     """Test that the runner invokes the function in a thread."""
-    import threading
     from unittest.mock import MagicMock
 
     mock_root = MagicMock()
@@ -421,5 +419,5 @@ def test_background_runner_error_calls_handler() -> None:
 def test_services_format_timestamp() -> None:
     from pathkeeper.services import format_backup_timestamp_utc
 
-    ts = datetime(2025, 3, 15, 14, 30, 0, tzinfo=timezone.utc)
+    ts = datetime(2025, 3, 15, 14, 30, 0, tzinfo=UTC)
     assert format_backup_timestamp_utc(ts) == "2025-03-15 14:30Z"

@@ -6,12 +6,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import pytest
 from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
 from pathkeeper import cli
-from pathkeeper.config import AppConfig
 from pathkeeper.core.diff import compute_diff, render_diff
 from pathkeeper.models import BackupRecord, PathDiff
 

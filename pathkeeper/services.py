@@ -14,9 +14,6 @@ from typing import TYPE_CHECKING
 
 from pathkeeper.config import backups_home, load_config
 from pathkeeper.core.backup import (
-    _load_latest_backup,
-    backup_content_hash,
-    backup_filename,
     create_backup,
     list_backups,
     prune_backups,
@@ -28,8 +25,8 @@ from pathkeeper.models import Scope
 from pathkeeper.platform import get_platform_adapter, normalized_os_name
 
 if TYPE_CHECKING:
-    from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot
     from pathkeeper.core.path_writer import PathWriter
+    from pathkeeper.models import BackupRecord, DiagnosticReport, PathSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +36,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 
 
-def get_snapshot_and_adapter() -> "tuple[PathSnapshot, PathWriter, str]":
+def get_snapshot_and_adapter() -> tuple[PathSnapshot, PathWriter, str]:
     """Return (snapshot, platform_adapter, os_name)."""
     config = load_config()
     adapter = get_platform_adapter(config)
@@ -53,7 +50,7 @@ def get_snapshot_and_adapter() -> "tuple[PathSnapshot, PathWriter, str]":
 # ------------------------------------------------------------------
 
 
-def read_current_report(scope: Scope) -> tuple["PathSnapshot", "DiagnosticReport"]:
+def read_current_report(scope: Scope) -> tuple[PathSnapshot, DiagnosticReport]:
     """Read the live PATH and return a diagnostic report."""
     from pathkeeper.core.diagnostics import analyze_snapshot
 
@@ -75,13 +72,13 @@ def read_current_report(scope: Scope) -> tuple["PathSnapshot", "DiagnosticReport
 # ------------------------------------------------------------------
 
 
-def recent_backups(*, limit: int = 20) -> list["BackupRecord"]:
+def recent_backups(*, limit: int = 20) -> list[BackupRecord]:
     return list_backups(backups_home())[:limit]
 
 
 def select_backup(
     identifier: str | None,
-) -> tuple["BackupRecord", list["BackupRecord"]]:
+) -> tuple[BackupRecord, list[BackupRecord]]:
     records = list_backups(backups_home())
     if not records:
         raise PathkeeperError("No backups available.")

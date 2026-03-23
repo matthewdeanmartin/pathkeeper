@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol
+import tomllib
 from collections.abc import Sequence
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Protocol, cast
 
 from pathkeeper import __version__
 from pathkeeper.config import backups_home, load_config
@@ -26,7 +26,6 @@ from pathkeeper.platform import get_platform_adapter, normalized_os_name
 from pathkeeper.theme import t
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathkeeper.core.edit import EditSession
     from pathkeeper.core.path_writer import PathWriter
     from pathkeeper.interactive import MenuHandler
@@ -56,13 +55,15 @@ def build_parser() -> argparse.ArgumentParser:
     formatter_class: type[argparse.HelpFormatter] = argparse.HelpFormatter
     _totalhelp_action: type | None = None
     try:
-        from rich_argparse import RichHelpFormatter as _Formatter  # type: ignore[import-not-found,import-untyped,no-any-expr,unused-ignore]
+        from rich_argparse import RichHelpFormatter as _Formatter
 
         formatter_class = _Formatter
         try:
-            from totalhelp import TotalHelpAction as _TotalHelpAction  # type: ignore[import-not-found,import-untyped,attr-defined,no-any-expr,unused-ignore]
+            import totalhelp as _totalhelp
 
-            _totalhelp_action = _TotalHelpAction
+            totalhelp_action = getattr(_totalhelp, "TotalHelpAction", None)
+            if totalhelp_action is not None:
+                _totalhelp_action = cast(type[argparse.Action], totalhelp_action)
         except ImportError:
             pass
     except ImportError:
@@ -339,8 +340,8 @@ def _init_theme(args: argparse.Namespace) -> None:
     try:
         config = load_config()
         t.apply_config(config.display.color)
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
+        logger.warning("Could not load display config; using defaults: %s", exc)
 
 
 def _print_diagnostics(args: argparse.Namespace) -> int:
@@ -497,9 +498,9 @@ def _recent_backups(*, limit: int = 20) -> list[BackupRecord]:
 
 
 def _render_backup_listing(records: list[BackupRecord], *, numbered: bool) -> None:
-    from pytable_formatter import Table  # type: ignore[import-untyped]
+    from pytable_formatter import Cell, Table
 
-    headers = [
+    headers: list[str | Cell] = [
         "Backup",
         "Timestamp",
         "Tag",
@@ -512,9 +513,9 @@ def _render_backup_listing(records: list[BackupRecord], *, numbered: bool) -> No
     ]
     if numbered:
         headers.insert(0, "#")
-    rows: list[list[str]] = []
+    rows: list[list[object | Cell]] = []
     for index, record in enumerate(records, start=1):
-        row = [
+        row: list[object | Cell] = [
             record.source_file.name if record.source_file is not None else "<unsaved>",
             _format_backup_timestamp_utc(record.timestamp),
             record.tag,
@@ -557,9 +558,7 @@ def _print_interactive_startup_banner() -> None:
         if s.invalid == 0 and s.duplicates == 0 and s.empty == 0
         else t.warn("needs attention")
     )
-    print(
-        t.header(f"pathkeeper") + t.dim(f"  {backup_count} backup(s) in {backup_dir}")
-    )
+    print(t.header("pathkeeper") + t.dim(f"  {backup_count} backup(s) in {backup_dir}"))
     parts = [
         f"entries={s.total}",
         t.ok(f"valid={s.valid}"),
@@ -921,9 +920,7 @@ def _populate(args: argparse.Namespace) -> int:
     if args.dry_run:
         print(t.dry_run("[dry-run] No changes written."))
         return 0
-    if args.all:
-        selected = matches
-    elif args.force:
+    if args.all or args.force:
         selected = matches
     else:
         print()
@@ -972,10 +969,10 @@ def _prompt_choice(message: str, *, upper_bound: int) -> int | None:
 
 
 def _select_truncated_repairs(
-    repairs: list[tuple[str, "TruncatedPathRepair"]],
+    repairs: list[tuple[str, TruncatedPathRepair]],
     *,
     force: bool,
-) -> list[tuple[str, "TruncatedPathRepair"]]:
+) -> list[tuple[str, TruncatedPathRepair]]:
     selected: list[tuple[str, TruncatedPathRepair]] = []
     for current_value, repair in repairs:
         print(f"[{repair.scope.value}] Entry #{repair.display_index}: {current_value}")
@@ -1159,6 +1156,7 @@ def _write_edit_session(
 
 def _interactive_edit(args: argparse.Namespace) -> int:
     import shlex
+
     from pathkeeper.core.diff import render_diff
     from pathkeeper.core.edit import EditSession
 
@@ -1325,7 +1323,7 @@ def _schedule(args: argparse.Namespace) -> int:
     return 0
 
 
-def _interactive_schedule_status(args: argparse.Namespace) -> int:
+def _interactive_schedule_status(_args: argparse.Namespace) -> int:
     from pathkeeper.core.schedule import schedule_status
 
     os_name = normalized_os_name()
@@ -1534,7 +1532,7 @@ def _shell_startup(args: argparse.Namespace) -> int:
 
 def _first_run_wizard() -> int:
     """Interactive onboarding for new users (no ~/.pathkeeper/ found)."""
-    from pathkeeper.config import app_home, ensure_app_state
+    from pathkeeper.config import ensure_app_state
 
     print(t.header("Welcome to pathkeeper!"))
     print()
@@ -1576,22 +1574,20 @@ def _first_run_wizard() -> int:
         )
         print()
 
-    # Step 4: Shell startup hook
-    detected = _detect_shell_rc()
-    if detected:
-        shell_name, rc_file = detected
-        if _prompt_yes_no(f"Install startup hook into {rc_file}?", default=True):
-            import argparse as _ap
-
-            _shell_startup(
-                _ap.Namespace(
-                    shell=shell_name,
-                    rc_file=None,
-                    dry_run=False,
-                    remove=False,
+        # Step 4: Shell startup hook
+        detected = _detect_shell_rc()
+        if detected:
+            shell_name, rc_file = detected
+            if _prompt_yes_no(f"Install startup hook into {rc_file}?", default=True):
+                _shell_startup(
+                    argparse.Namespace(
+                        shell=shell_name,
+                        rc_file=None,
+                        dry_run=False,
+                        remove=False,
+                    )
                 )
-            )
-            print()
+                print()
 
     # Step 5: Done
     print(t.ok("Setup complete!"))
@@ -1618,9 +1614,11 @@ def _interactive() -> int:
     else:
         restore_namespace = parser.parse_args(["inspect"])
 
-        def restore_handler(_args: argparse.Namespace) -> int:
+        def _no_backups_restore_handler(_args: argparse.Namespace) -> int:
             print("No backups available yet.")
             return 0
+
+        restore_handler = _no_backups_restore_handler
 
     dispatch = {
         "1": MenuEntry(
@@ -1703,7 +1701,7 @@ def _interactive() -> int:
 def run(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     try:
-        import argcomplete  # type: ignore[import-not-found,import-untyped,unused-ignore]
+        import argcomplete
 
         argcomplete.autocomplete(parser)
     except ImportError:

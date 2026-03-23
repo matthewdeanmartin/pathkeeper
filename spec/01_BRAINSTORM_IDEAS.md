@@ -215,7 +215,7 @@ Why it could help:
 If only a few of these move forward soon, these seem especially strong:
 
 1. guided startup triage
-2. restore selected entries from a backup
-3. repair from installed apps inventory
-4. protected entries
-5. dry-run plus command recipe
+1. restore selected entries from a backup
+1. repair from installed apps inventory
+1. protected entries
+1. dry-run plus command recipe

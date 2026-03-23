@@ -16,7 +16,7 @@ The primary interface is an **interactive CLI** (menu-driven TUI), with all comm
 
 `pathkeeper` fills the gap: a single Python tool that works on all three OSes, maintains a versioned backup history, and provides an interactive workflow for inspection and repair.
 
----
+______________________________________________________________________
 
 ## Concepts
 
@@ -77,7 +77,7 @@ Every backup has a `tag` indicating how it was created:
 - `pre-dedupe` — automatically created before deduplication
 - `pre-populate` — automatically created before populating with common paths
 
----
+______________________________________________________________________
 
 ## Commands
 
@@ -119,9 +119,9 @@ Displays the current PATH with diagnostics.
    - `⚠` exists but is a file, not a directory
    - `D` duplicate of an earlier entry
    - `→` contains unexpanded variables (Windows `%VAR%`, Unix `$VAR`)
-2. **Summary stats** — total entries, valid, invalid, duplicates, empty entries
-3. **Scope breakdown** — which entries come from system vs. user PATH (Windows only; on Unix shows effective merged PATH)
-4. **Length warning** — on Windows, warn if total PATH string exceeds 2047 characters (the `setx` limit) or 32767 characters (the absolute registry limit)
+1. **Summary stats** — total entries, valid, invalid, duplicates, empty entries
+1. **Scope breakdown** — which entries come from system vs. user PATH (Windows only; on Unix shows effective merged PATH)
+1. **Length warning** — on Windows, warn if total PATH string exceeds 2047 characters (the `setx` limit) or 32767 characters (the absolute registry limit)
 
 **Flags:**
 
@@ -131,6 +131,7 @@ Displays the current PATH with diagnostics.
 - `--only-dupes` — show only duplicate entries
 
 **Interactive mode additions:** after displaying, offer sub-actions:
+
 - "Delete invalid entries?" (→ runs dedupe with invalid filter)
 - "Delete duplicates?" (→ runs dedupe)
 
@@ -145,8 +146,8 @@ pathkeeper backup [--note "before installing conda"] [--tag manual]
 **Behavior:**
 
 1. Read system and user PATH from their canonical sources (registry on Windows, env + source files on Unix).
-2. Write JSON backup file to `~/.pathkeeper/backups/`.
-3. Print confirmation with the backup filename.
+1. Write JSON backup file to `~/.pathkeeper/backups/`.
+1. Print confirmation with the backup filename.
 
 **Flags:**
 
@@ -163,11 +164,11 @@ Restores PATH from a previous backup.
 **Interactive flow:**
 
 1. List recent backups (most recent first), showing timestamp, tag, note, and entry count.
-2. User selects one.
-3. Show a **diff** between current PATH and the selected backup (added entries in green, removed in red, reordered in yellow).
-4. Ask which scope to restore: system, user, or both.
-5. **Automatically create a `pre-restore` backup** of the current state.
-6. Confirm, then write.
+1. User selects one.
+1. Show a **diff** between current PATH and the selected backup (added entries in green, removed in red, reordered in yellow).
+1. Ask which scope to restore: system, user, or both.
+1. **Automatically create a `pre-restore` backup** of the current state.
+1. Confirm, then write.
 
 **Direct invocation:**
 
@@ -196,13 +197,13 @@ Removes duplicate and optionally invalid entries from PATH.
 **Interactive flow:**
 
 1. Show current PATH with duplicates and invalids highlighted.
-2. Offer three modes:
+1. Offer three modes:
    - **Duplicates only** — remove later occurrences, keep first.
    - **Invalid only** — remove entries pointing to nonexistent directories.
    - **Both** (default).
-3. Show preview of what will be removed.
-4. Create `pre-dedupe` backup.
-5. Confirm, then write.
+1. Show preview of what will be removed.
+1. Create `pre-dedupe` backup.
+1. Confirm, then write.
 
 **Direct invocation:**
 
@@ -227,9 +228,9 @@ Scans the system for common tool directories and offers to add missing ones to P
 **Behavior:**
 
 1. Load the known-tools catalog (`known_tools.toml` — ships with sensible defaults, user-editable).
-2. For each candidate directory pattern, check if it exists on disk.
-3. Filter out any that are already in PATH.
-4. Present the discoveries grouped by category, with checkboxes:
+1. For each candidate directory pattern, check if it exists on disk.
+1. Filter out any that are already in PATH.
+1. Present the discoveries grouped by category, with checkboxes:
 
 ```
 Found 12 tool directories not in your PATH:
@@ -250,7 +251,7 @@ Found 12 tool directories not in your PATH:
 ```
 
 5. Create `pre-populate` backup.
-6. Add selected entries to user PATH (not system, unless `--system` is passed).
+1. Add selected entries to user PATH (not system, unless `--system` is passed).
 
 **Direct invocation:**
 
@@ -353,7 +354,7 @@ pathkeeper edit --remove "/old/path"      [--scope user]
 pathkeeper edit --move "/some/path" --position 3
 ```
 
----
+______________________________________________________________________
 
 ## Configuration
 
@@ -392,7 +393,7 @@ interval = "1h"
 rc_file = ""
 ```
 
----
+______________________________________________________________________
 
 ## Scheduling (Optional Feature)
 
@@ -412,7 +413,7 @@ pathkeeper schedule status
 
 The scheduled job runs `pathkeeper backup --tag auto --quiet`.
 
----
+______________________________________________________________________
 
 ## Architecture
 
@@ -475,18 +476,18 @@ A factory selects the correct implementation based on `sys.platform`.
 
 No other third-party dependencies. The tool should be installable with `pip install pathkeeper` or runnable as `python -m pathkeeper` from a git clone.
 
----
+______________________________________________________________________
 
 ## Safety Principles
 
 1. **Never write without a backup.** Every mutating operation (`restore`, `dedupe`, `populate`, `edit --write`) creates an automatic pre-operation backup unless explicitly opted out.
-2. **Never write without confirmation.** All interactive write operations require explicit confirmation. Direct CLI invocation requires `--force` to skip.
-3. **Show before writing.** Every mutating operation shows a diff/preview before asking for confirmation.
-4. **Preserve raw values.** On Windows, preserve `REG_EXPAND_SZ` type and unexpanded `%VARIABLES%`. Never silently expand environment variables when round-tripping.
-5. **Don't touch what you don't own.** On macOS/Linux, only edit PATH lines within `pathkeeper`'s own marker block in shell rc files. Never modify other content.
-6. **Elevation is explicit.** If an operation requires admin/sudo (system PATH writes), tell the user clearly and fail gracefully rather than silently requesting elevation.
+1. **Never write without confirmation.** All interactive write operations require explicit confirmation. Direct CLI invocation requires `--force` to skip.
+1. **Show before writing.** Every mutating operation shows a diff/preview before asking for confirmation.
+1. **Preserve raw values.** On Windows, preserve `REG_EXPAND_SZ` type and unexpanded `%VARIABLES%`. Never silently expand environment variables when round-tripping.
+1. **Don't touch what you don't own.** On macOS/Linux, only edit PATH lines within `pathkeeper`'s own marker block in shell rc files. Never modify other content.
+1. **Elevation is explicit.** If an operation requires admin/sudo (system PATH writes), tell the user clearly and fail gracefully rather than silently requesting elevation.
 
----
+______________________________________________________________________
 
 ## Exit Codes
 
@@ -499,7 +500,7 @@ No other third-party dependencies. The tool should be installable with `pip inst
 | 4 | Backup not found |
 | 5 | User cancelled |
 
----
+______________________________________________________________________
 
 ## Future Considerations (Out of Scope for v0.1)
 

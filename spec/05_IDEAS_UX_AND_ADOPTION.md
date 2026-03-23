@@ -3,7 +3,7 @@
 Ideas for making pathkeeper easier to discover, easier to use for the first
 time, and more likely to become a habit.
 
----
+______________________________________________________________________
 
 ## First-run experience
 
@@ -13,11 +13,11 @@ When pathkeeper is run for the first time (no `~/.pathkeeper/` exists),
 offer a short wizard instead of dropping into the main menu:
 
 1. Welcome + brief explanation of what pathkeeper does
-2. Run a quick PATH health check and show the summary
-3. Offer to create an initial backup right now
-4. Offer to install the shell startup hook
-5. Optionally run populate to find missing tool directories
-6. Done — show what was set up and how to run `pathkeeper` again
+1. Run a quick PATH health check and show the summary
+1. Offer to create an initial backup right now
+1. Offer to install the shell startup hook
+1. Optionally run populate to find missing tool directories
+1. Done — show what was set up and how to run `pathkeeper` again
 
 Why it could help:
 
@@ -26,12 +26,12 @@ Why it could help:
 - Users who create a first backup are much more likely to keep using the tool
 - Could be triggered by detecting `~/.pathkeeper/` is absent
 
----
+______________________________________________________________________
 
 ### `pathkeeper doctor` as the default for new users
 
 For users with zero backups, the current interactive menu shows "No backups
-available yet" in the Restore slot and proceeds normally.  A stronger default:
+available yet" in the Restore slot and proceeds normally. A stronger default:
 
 - When there are zero backups, make Doctor the default on first launch instead
   of the full menu
@@ -44,16 +44,16 @@ Why it could help:
 - New users don't know what they have — doctor tells them before they invest in backups
 - Framing the first action as "diagnose" rather than "backup" is more compelling
 
----
+______________________________________________________________________
 
 ### "What just broke?" mode
 
-A quick-entry command for the panicked user: `pathkeeper triage`.  Sequence:
+A quick-entry command for the panicked user: `pathkeeper triage`. Sequence:
 
 1. Compare current PATH to the most recent backup
-2. If they differ, show the diff and offer to restore
-3. If they are the same, run doctor and show problems
-4. If no backups exist, run repair-truncated and populate as first steps
+1. If they differ, show the diff and offer to restore
+1. If they are the same, run doctor and show problems
+1. If no backups exist, run repair-truncated and populate as first steps
 
 Why it could help:
 
@@ -61,7 +61,7 @@ Why it could help:
 - `pathkeeper triage` is more discoverable than knowing the specific subcommand
 - Could become the tool's "elevator pitch" entry point
 
----
+______________________________________________________________________
 
 ## Interactive menu improvements
 
@@ -81,7 +81,7 @@ Why it could help:
 - Reduces the cognitive load of the "what should I do next?" question
 - The data is already computed in the startup banner — just needs to flow into the menu
 
----
+______________________________________________________________________
 
 ### Recent action history in the menu footer
 
@@ -97,7 +97,7 @@ Why it could help:
 - Particularly useful if a user returns after a few days
 - Could highlight if no backup has been created in a long time
 
----
+______________________________________________________________________
 
 ### Menu filtering / search
 
@@ -113,7 +113,7 @@ Why it could help:
 - Makes the tool feel faster as users become more experienced
 - Low implementation cost: just prefix-match the label
 
----
+______________________________________________________________________
 
 ### Breadcrumb / context line during sub-commands
 
@@ -130,13 +130,13 @@ Why it could help:
 - Especially useful for repair and populate where many prompts follow
 - One extra print per command entry — minimal cost
 
----
+______________________________________________________________________
 
 ## Output and readability
 
 ### Wide terminal auto-detection for the backup table
 
-The `backups list` table currently has a fixed max_width of 220.  It should:
+The `backups list` table currently has a fixed max_width of 220. It should:
 
 - Auto-detect terminal width via `shutil.get_terminal_size()`
 - Truncate long paths in the Backup column gracefully
@@ -148,7 +148,7 @@ Why it could help:
 - Wide users get full benefit; narrow users get usable output
 - No new dependencies — `shutil.get_terminal_size` is stdlib
 
----
+______________________________________________________________________
 
 ### Paged output for long lists
 
@@ -167,13 +167,13 @@ Why it could help:
 - Pager support is expected behavior in CLI tools
 - Could honor `NO_PAGER` env var for scripted use
 
----
+______________________________________________________________________
 
 ### Color in non-TTY mode (for CI with color support)
 
-Currently color is suppressed for non-TTY stdout.  Some CI systems (GitHub
+Currently color is suppressed for non-TTY stdout. Some CI systems (GitHub
 Actions, GitLab CI) support ANSI color via `$FORCE_COLOR` or
-`$GITHUB_ACTIONS`.  Honor these:
+`$GITHUB_ACTIONS`. Honor these:
 
 - `FORCE_COLOR=1` or `FORCE_COLOR=true` — enable color regardless of TTY
 - `GITHUB_ACTIONS=true` — enable color (GitHub strips color if not supported)
@@ -185,7 +185,7 @@ Why it could help:
 - The `NO_COLOR` standard already handles the "disable" case; this handles "force on"
 - One extra env check in `Theme._autodetect()`
 
----
+______________________________________________________________________
 
 ## Discoverability and help
 
@@ -206,7 +206,7 @@ Why it could help:
 - Examples communicate intent better than flag descriptions alone
 - Low cost: just add to the `epilog` of each subparser
 
----
+______________________________________________________________________
 
 ### `pathkeeper doctor --explain`
 
@@ -225,11 +225,11 @@ Why it could help:
 - New users don't know whether a missing entry is a problem or just stale
 - Could be the default in interactive mode, opt-in in scripted mode
 
----
+______________________________________________________________________
 
 ### Shell completion
 
-Generate tab completions for bash, zsh, fish, and PowerShell.  argparse has
+Generate tab completions for bash, zsh, fish, and PowerShell. argparse has
 no built-in completion generator, but the `shtab` package or a hand-rolled
 approach would work.
 
@@ -245,7 +245,7 @@ Why it could help:
 - Backup identifier completion is particularly useful (no one memorizes timestamps)
 - Makes the tool feel polished
 
----
+______________________________________________________________________
 
 ### `pathkeeper update-catalog`
 
@@ -264,7 +264,7 @@ Security considerations:
 - Should verify a checksum or signature before applying
 - URL should be configurable so organizations can host their own
 
----
+______________________________________________________________________
 
 ## Adoption and sharing ideas
 
@@ -284,7 +284,7 @@ Why it could help:
 - Makes support easier: "run selfcheck and paste the output"
 - Could be part of the first-run wizard
 
----
+______________________________________________________________________
 
 ### Anonymous usage telemetry (opt-in)
 
@@ -301,15 +301,15 @@ Why it could help:
 - OS distribution data would inform platform priority
 - Must be strictly opt-in, clearly disclosed, and easy to disable
 
----
+______________________________________________________________________
 
 ## Potential next candidates
 
 If only a few of these move forward soon, these seem especially strong:
 
 1. `pathkeeper triage` — high-value entry point for broken-PATH users
-2. `pathkeeper help <command>` with examples — zero-cost discoverability win
-3. Wide terminal auto-detection for the backup table — fixes a real usability gap
-4. Inline health indicators in the menu — leverages already-computed data
-5. Interactive onboarding wizard — converts installs into retained users
-6. Shell completion — marks the tool as mature and serious
+1. `pathkeeper help <command>` with examples — zero-cost discoverability win
+1. Wide terminal auto-detection for the backup table — fixes a real usability gap
+1. Inline health indicators in the menu — leverages already-computed data
+1. Interactive onboarding wizard — converts installs into retained users
+1. Shell completion — marks the tool as mature and serious

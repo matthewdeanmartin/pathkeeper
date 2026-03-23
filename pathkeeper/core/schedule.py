@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +20,12 @@ def _command_line() -> str:
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, check=False, capture_output=True, text=True)
+    return subprocess.run(  # nosec B603
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
 
 
 def _clean_windows_task_error(text: str) -> str:

@@ -3,9 +3,8 @@ from __future__ import annotations
 import shutil
 import tomllib
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
-
 from importlib import resources
+from pathlib import Path
 
 APP_DIR_NAME = ".pathkeeper"
 BACKUP_DIR_NAME = "backups"

@@ -56,9 +56,7 @@ class Theme:
             return False
         if os.environ.get("TERM") == "dumb":
             return False
-        if not sys.stdout.isatty():
-            return False
-        return True
+        return sys.stdout.isatty()
 
     def apply_config(self, color: bool) -> None:
         """Called once config is loaded; config can further disable color."""

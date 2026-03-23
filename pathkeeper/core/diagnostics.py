@@ -41,7 +41,7 @@ def has_unexpanded_variables(entry: str, os_name: str) -> bool:
 def canonicalize_entry(entry: str, os_name: str) -> str:
     value = expand_entry(entry)
     if os_name == "windows":
-        normalized = value.replace("/", "\\").rstrip("\\")
+        normalized = value.replace("/", "\\").rstrip("\\").strip('"')
         return normalized.casefold()
     normalized = value.rstrip("/")
     if os_name == "darwin":
@@ -150,7 +150,7 @@ def doctor_recommendations(report: DiagnosticReport) -> list[str]:
     return recommendations
 
 
-def explain_entry(entry: "DiagnosticEntry", os_name: str) -> str:
+def explain_entry(entry: DiagnosticEntry, os_name: str) -> str:
     """Return a plain-language explanation for a diagnostic entry's status."""
     if entry.is_empty:
         return (

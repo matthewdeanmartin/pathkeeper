@@ -4,7 +4,7 @@ This document explains the architecture, design decisions, and conventions
 behind pathkeeper's tkinter GUI so that contributors can extend or modify it
 confidently.
 
----
+______________________________________________________________________
 
 ## Launching the GUI
 
@@ -18,7 +18,7 @@ uv run pathkeeper-gui        # gui-scripts entry point (pyproject.toml)
 
 All three converge on `pathkeeper.gui.app:launch_gui`.
 
----
+______________________________________________________________________
 
 ## Architecture overview
 
@@ -62,7 +62,7 @@ the natural split points are clearly marked with comment banners:
 Each section is self-contained and can be extracted to its own module by
 moving the class and updating the `_build_panel` factory dict.
 
----
+______________________________________________________________________
 
 ## Zero overhead on the CLI
 
@@ -83,7 +83,7 @@ import pathkeeper.cli
 assert "tkinter" not in sys.modules
 ```
 
----
+______________________________________________________________________
 
 ## The dark theme
 
@@ -128,7 +128,7 @@ The `_entry_display(entry)` helper maps a `DiagnosticEntry` to
 `(tag, status_marker, notes_string)` for consistent rendering across
 the Inspect, Doctor, and Edit panels.
 
----
+______________________________________________________________________
 
 ## Background threading
 
@@ -173,12 +173,12 @@ def _display(self, report):
 
 1. `_fetch` methods are `@staticmethod` — they must not reference `self`
    or any widget. This prevents accidental cross-thread widget access.
-2. `on_success` / `on_error` callbacks run on the main thread via
+1. `on_success` / `on_error` callbacks run on the main thread via
    `root.after(0, ...)`, so they can freely update the UI.
-3. Only one operation runs at a time per panel. Disable buttons during
+1. Only one operation runs at a time per panel. Disable buttons during
    long operations if needed.
 
----
+______________________________________________________________________
 
 ## Panel architecture
 
@@ -216,8 +216,8 @@ simple (no stale-state bugs) and construction is fast.
 ### Adding a new panel
 
 1. Create a class extending `_BasePanel` in `app.py` (or its own module).
-2. Add it to the `builders` dict in `_build_panel`.
-3. Add a sidebar entry in `PathkeeperApp._build_ui`:
+1. Add it to the `builders` dict in `_build_panel`.
+1. Add a sidebar entry in `PathkeeperApp._build_ui`:
 
 ```python
 items = [
@@ -229,7 +229,7 @@ items = [
 That's it. The sidebar button, panel lifecycle, and status bar integration
 are automatic.
 
----
+______________________________________________________________________
 
 ## Reusable widget helpers
 
@@ -245,7 +245,7 @@ are automatic.
 These helpers handle scrollbar wiring, colour configuration, and layout
 so that panel code stays focused on business logic.
 
----
+______________________________________________________________________
 
 ## Confirmation and user input
 
@@ -259,7 +259,7 @@ The CLI uses `input()` for confirmations. The GUI replaces these with:
 
 These are modal but do not block the tkinter event loop.
 
----
+______________________________________________________________________
 
 ## Testing
 
@@ -312,7 +312,7 @@ mock_root.after = lambda _ms, fn, *a: fn(*a)
 uv run pytest tests/test_gui.py -v
 ```
 
----
+______________________________________________________________________
 
 ## Relationship to `services.py`
 
@@ -330,7 +330,7 @@ The CLI retains its own copies of some of these (for backward
 compatibility with existing test mocking), but new code should prefer
 `services.py`.
 
----
+______________________________________________________________________
 
 ## Style guidelines
 

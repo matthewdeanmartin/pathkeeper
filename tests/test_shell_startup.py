@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -92,7 +91,7 @@ def test_shell_startup_rc_for_powershell() -> None:
 
 
 def test_shell_startup_rc_for_pwsh_alias() -> None:
-    shell_name, rc_file = _shell_startup_rc_for("pwsh")
+    shell_name, _rc_file = _shell_startup_rc_for("pwsh")
     assert shell_name == "powershell"
 
 

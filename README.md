@@ -9,7 +9,7 @@ to recover.
 
 ## Usage
 
-Run `pathkeeper` and follow the startup. Or run `pathkeeper` again and follow the interactive commands. It also has a 
+Run `pathkeeper` and follow the startup. Or run `pathkeeper` again and follow the interactive commands. It also has a
 full bash CLI. Or run `pathkeeper gui` for tkinter GUI.
 
 ## What it does
@@ -90,16 +90,29 @@ uv run pathkeeper
 ## Quality checks
 
 ```bash
-make test
-make typecheck
+make format
+make lint
 make check
 ```
 
-Or directly:
+Common focused targets:
 
 ```bash
-uv run pytest
-uv run mypy pathkeeper tests
+make test
+make typecheck
+make security
+make metadata
+make version-check
+```
+
+Manual / on-demand checks:
+
+```bash
+make docs
+make spell
+make typecheck-ty
+make typecheck-basedpyright
+make prepublish
 ```
 
 ## Notes

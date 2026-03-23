@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
 requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 1 - Planning",
+]
 dependencies = [
     "pytable-formatter>=0.1.1",
     "argcomplete>=3.3.0",
@@ -28,10 +31,24 @@ pathkeeper-gui = "pathkeeper.gui.app:launch_gui"
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.4",
+    "basedpyright>=1.38.3",
+    "black>=26.3.1",
+    "isort>=8.0.1",
+    "jiggle-version>=2.1.0",
+    "codespell>=2.4.1",
+    "mdformat>=1.0.0",
+    "metametameta>=0.1.5",
     "mypy>=1.18.2",
+    "pylint[spelling]>=4.0.5",
     "pytest>=8.4.2",
+    "ruff>=0.15.7",
     "tox>=4.0",
     "tox-uv>=1.0",
+    "troml-dev-status>=0.6.0",
+    "ty>=0.0.24",
+    "yamlfix>=1.19.1",
+    "hypothesis>=6.151.9",
 ]
 
 [tool.pytest.ini_options]
@@ -41,8 +58,18 @@ markers = [
     "slow: performance benchmarks (run with -m slow)",
 ]
 
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+py_version = 313
+skip_gitignore = true
+
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.13"
 strict = true
 packages = ["pathkeeper", "tests"]
 
@@ -50,6 +77,42 @@ packages = ["pathkeeper", "tests"]
 module = "tests.*"
 disallow_untyped_defs = false
 disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = ["pytable_formatter"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "E",
+    "F",
+    "RUF",
+    "SIM",
+    "UP",
+    "W",
+]
+ignore = [
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["B011"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101", "B604"]
+
+[tool.basedpyright]
+include = ["pathkeeper", "tests"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -68,4 +131,3 @@ commands =
     pytest {posargs}
     mypy pathkeeper tests
 """
-

@@ -21,7 +21,6 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
-import timeit
 from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -35,7 +34,7 @@ import pytest
 _REPO_ROOT = Path(__file__).parent.parent
 
 
-def _time(fn: "Callable[[], object]", *, repeat: int = 5) -> float:
+def _time(fn: Callable[[], object], *, repeat: int = 5) -> float:
     """Return median wall time in seconds over `repeat` calls."""
     times = []
     for _ in range(repeat):

@@ -48,7 +48,6 @@ def _patch_wizard_env(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setattr(_config_mod, "app_home", lambda: app_dir)
 
     # Patch the imported name in cli's own namespace too (used in run() and wizard)
-    import pathkeeper.config as _pkconfig
 
     monkeypatch.setattr("pathkeeper.config.app_home", lambda: app_dir)
     return app_dir
