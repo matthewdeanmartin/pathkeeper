@@ -4,8 +4,12 @@ import os
 import re
 from pathlib import Path
 
-from pathkeeper.models import DiagnosticEntry, DiagnosticReport, DiagnosticSummary, Scope
-
+from pathkeeper.models import (
+    DiagnosticEntry,
+    DiagnosticReport,
+    DiagnosticSummary,
+    Scope,
+)
 
 WINDOWS_VAR_PATTERN = re.compile(r"%[^%]+%")
 UNIX_VAR_PATTERN = re.compile(r"\$(?:\{[^}]+\}|[A-Za-z_][A-Za-z0-9_]*)")
@@ -92,39 +96,55 @@ def analyze_snapshot(
     next_index = 1
     seen: dict[str, int] = {}
     if scope in {Scope.SYSTEM, Scope.ALL}:
-        system_diagnostics = _analyze_group(system_entries, Scope.SYSTEM, os_name, next_index, seen)
+        system_diagnostics = _analyze_group(
+            system_entries, Scope.SYSTEM, os_name, next_index, seen
+        )
         entries.extend(system_diagnostics)
         next_index += len(system_diagnostics)
     if scope in {Scope.USER, Scope.ALL}:
-        user_diagnostics = _analyze_group(user_entries, Scope.USER, os_name, next_index, seen)
+        user_diagnostics = _analyze_group(
+            user_entries, Scope.USER, os_name, next_index, seen
+        )
         entries.extend(user_diagnostics)
     warnings: list[str] = []
     path_length = len(raw_value)
     if os_name == "windows":
         if path_length > 32767:
-            warnings.append("PATH exceeds the Windows registry limit of 32767 characters.")
+            warnings.append(
+                "PATH exceeds the Windows registry limit of 32767 characters."
+            )
         elif path_length > 2047:
             warnings.append("PATH exceeds the legacy setx limit of 2047 characters.")
     summary = DiagnosticSummary(
         total=len(entries),
-        valid=sum(1 for item in entries if item.exists and item.is_dir and not item.is_empty),
-        invalid=sum(1 for item in entries if item.value and (not item.exists or not item.is_dir)),
+        valid=sum(
+            1 for item in entries if item.exists and item.is_dir and not item.is_empty
+        ),
+        invalid=sum(
+            1 for item in entries if item.value and (not item.exists or not item.is_dir)
+        ),
         duplicates=sum(1 for item in entries if item.is_duplicate),
         empty=sum(1 for item in entries if item.is_empty),
         files=sum(1 for item in entries if item.exists and not item.is_dir),
         warnings=tuple(warnings),
     )
-    return DiagnosticReport(entries=entries, summary=summary, os_name=os_name, path_length=path_length)
+    return DiagnosticReport(
+        entries=entries, summary=summary, os_name=os_name, path_length=path_length
+    )
 
 
 def doctor_recommendations(report: DiagnosticReport) -> list[str]:
     recommendations: list[str] = []
     if report.summary.invalid:
-        recommendations.append("Run `pathkeeper dedupe --remove-invalid` to remove broken entries.")
+        recommendations.append(
+            "Run `pathkeeper dedupe --remove-invalid` to remove broken entries."
+        )
     if report.summary.duplicates:
         recommendations.append("Run `pathkeeper dedupe` to remove duplicate entries.")
     if report.summary.warnings:
-        recommendations.append("Create a backup now and consider restoring a healthier snapshot.")
+        recommendations.append(
+            "Create a backup now and consider restoring a healthier snapshot."
+        )
     if not recommendations:
         recommendations.append("No obvious PATH issues were detected.")
     return recommendations
@@ -167,4 +187,3 @@ def explain_entry(entry: "DiagnosticEntry", os_name: str) -> str:
             "Remove it with `pathkeeper edit --remove`."
         )
     return "This entry looks healthy."
-

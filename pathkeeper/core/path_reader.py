@@ -22,4 +22,3 @@ def read_snapshot(reader: PathReader) -> PathSnapshot:
         system_path_raw=reader.read_system_path_raw(),
         user_path_raw=reader.read_user_path_raw(),
     )
-

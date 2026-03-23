@@ -25,6 +25,10 @@ def test_dedupe_entries_keep_last_preserves_latest_duplicate(tmp_path: Path) -> 
     second = tmp_path / "beta"
     first.mkdir()
     second.mkdir()
-    result = dedupe_entries([str(first), str(second), str(first)], "linux", keep="last", remove_invalid=False)
+    result = dedupe_entries(
+        [str(first), str(second), str(first)],
+        "linux",
+        keep="last",
+        remove_invalid=False,
+    )
     assert result.cleaned == [str(second), str(first)]
-

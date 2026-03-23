@@ -2,6 +2,7 @@
 
 Launch via ``pathkeeper gui`` or ``pathkeeper --gui``.
 """
+
 from __future__ import annotations
 
 import threading
@@ -15,7 +16,12 @@ from pathkeeper.models import Scope
 if TYPE_CHECKING:
     from pathkeeper.core.edit import EditSession
     from pathkeeper.core.path_writer import PathWriter
-    from pathkeeper.models import BackupRecord, DiagnosticEntry, DiagnosticReport, PathSnapshot
+    from pathkeeper.models import (
+        BackupRecord,
+        DiagnosticEntry,
+        DiagnosticReport,
+        PathSnapshot,
+    )
 
 
 # ── colours ──────────────────────────────────────────────────────────
@@ -86,8 +92,12 @@ class PathkeeperApp(tk.Tk):
         self._sidebar.pack_propagate(False)
 
         title = tk.Label(
-            self._sidebar, text="pathkeeper", font=("Segoe UI", 14, "bold"),
-            fg=_CLR_ACCENT, bg=_CLR_SIDEBAR, pady=12,
+            self._sidebar,
+            text="pathkeeper",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_SIDEBAR,
+            pady=12,
         )
         title.pack(fill=tk.X)
 
@@ -105,10 +115,19 @@ class PathkeeperApp(tk.Tk):
         ]
         for key, label in items:
             btn = tk.Button(
-                self._sidebar, text=label, anchor="w", padx=16, pady=6,
-                font=("Segoe UI", 10), fg=_CLR_FG, bg=_CLR_BTN,
-                activebackground=_CLR_BTN_ACTIVE, activeforeground=_CLR_FG,
-                relief=tk.FLAT, bd=0, cursor="hand2",
+                self._sidebar,
+                text=label,
+                anchor="w",
+                padx=16,
+                pady=6,
+                font=("Segoe UI", 10),
+                fg=_CLR_FG,
+                bg=_CLR_BTN,
+                activebackground=_CLR_BTN_ACTIVE,
+                activeforeground=_CLR_FG,
+                relief=tk.FLAT,
+                bd=0,
+                cursor="hand2",
                 command=lambda k=key: self._show_panel(k),  # type: ignore[misc]
             )
             btn.pack(fill=tk.X, padx=8, pady=2)
@@ -121,8 +140,13 @@ class PathkeeperApp(tk.Tk):
         # Status bar
         self._status_var = tk.StringVar(value="Ready")
         self._statusbar = tk.Label(
-            self, textvariable=self._status_var, anchor="w", padx=8,
-            font=("Segoe UI", 9), fg=_CLR_DIM, bg=_CLR_SIDEBAR,
+            self,
+            textvariable=self._status_var,
+            anchor="w",
+            padx=8,
+            font=("Segoe UI", 9),
+            fg=_CLR_DIM,
+            bg=_CLR_SIDEBAR,
         )
         self._statusbar.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -131,8 +155,10 @@ class PathkeeperApp(tk.Tk):
             return
         # Highlight sidebar button
         for key, btn in self._sidebar_buttons.items():
-            btn.configure(bg=_CLR_ACCENT if key == name else _CLR_BTN,
-                          fg="#11111b" if key == name else _CLR_FG)
+            btn.configure(
+                bg=_CLR_ACCENT if key == name else _CLR_BTN,
+                fg="#11111b" if key == name else _CLR_FG,
+            )
         # Destroy previous panel
         for child in self._content.winfo_children():
             child.destroy()
@@ -181,22 +207,33 @@ def _make_tree(
     """
     style = ttk.Style()
     style.theme_use("default")
-    style.configure("Path.Treeview",
-                     background=_CLR_BG, foreground=_CLR_FG,
-                     fieldbackground=_CLR_BG, rowheight=24,
-                     font=("Consolas", 10))
-    style.configure("Path.Treeview.Heading",
-                     background=_CLR_SIDEBAR, foreground=_CLR_FG,
-                     font=("Segoe UI", 10, "bold"))
-    style.map("Path.Treeview", background=[("selected", _CLR_ACCENT)],
-              foreground=[("selected", "#11111b")])
+    style.configure(
+        "Path.Treeview",
+        background=_CLR_BG,
+        foreground=_CLR_FG,
+        fieldbackground=_CLR_BG,
+        rowheight=24,
+        font=("Consolas", 10),
+    )
+    style.configure(
+        "Path.Treeview.Heading",
+        background=_CLR_SIDEBAR,
+        foreground=_CLR_FG,
+        font=("Segoe UI", 10, "bold"),
+    )
+    style.map(
+        "Path.Treeview",
+        background=[("selected", _CLR_ACCENT)],
+        foreground=[("selected", "#11111b")],
+    )
 
     frame = tk.Frame(parent, bg=_CLR_BG)
     frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
 
     col_ids = [c[0] for c in columns]
-    tree = ttk.Treeview(frame, columns=col_ids, show="headings",
-                        height=height, style="Path.Treeview")
+    tree = ttk.Treeview(
+        frame, columns=col_ids, show="headings", height=height, style="Path.Treeview"
+    )
     for cid, heading, width in columns:
         tree.heading(cid, text=heading)
         tree.column(cid, width=width, minwidth=40)
@@ -217,9 +254,17 @@ def _make_output(parent: tk.Misc, *, height: int = 10) -> tk.Text:
     """Create a scrolled read-only text widget for output display."""
     frame = tk.Frame(parent, bg=_CLR_BG)
     frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-    text = tk.Text(frame, height=height, wrap=tk.WORD,
-                   bg=_CLR_BG_ALT, fg=_CLR_FG, font=("Consolas", 10),
-                   relief=tk.FLAT, bd=4, insertbackground=_CLR_FG)
+    text = tk.Text(
+        frame,
+        height=height,
+        wrap=tk.WORD,
+        bg=_CLR_BG_ALT,
+        fg=_CLR_FG,
+        font=("Consolas", 10),
+        relief=tk.FLAT,
+        bd=4,
+        insertbackground=_CLR_FG,
+    )
     vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=text.yview)
     text.configure(yscrollcommand=vsb.set, state=tk.DISABLED)
     text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -239,13 +284,20 @@ def _make_scope_selector(parent: tk.Misc, *, default: str = "all") -> tk.StringV
     var = tk.StringVar(value=default)
     frame = tk.Frame(parent, bg=_CLR_BG)
     frame.pack(fill=tk.X, padx=8, pady=(8, 0))
-    tk.Label(frame, text="Scope:", fg=_CLR_FG, bg=_CLR_BG,
-             font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(0, 8))
+    tk.Label(frame, text="Scope:", fg=_CLR_FG, bg=_CLR_BG, font=("Segoe UI", 10)).pack(
+        side=tk.LEFT, padx=(0, 8)
+    )
     for label in ("all", "system", "user"):
         tk.Radiobutton(
-            frame, text=label.capitalize(), variable=var, value=label,
-            fg=_CLR_FG, bg=_CLR_BG, selectcolor=_CLR_BG_ALT,
-            activebackground=_CLR_BG, activeforeground=_CLR_FG,
+            frame,
+            text=label.capitalize(),
+            variable=var,
+            value=label,
+            fg=_CLR_FG,
+            bg=_CLR_BG,
+            selectcolor=_CLR_BG_ALT,
+            activebackground=_CLR_BG,
+            activeforeground=_CLR_FG,
             font=("Segoe UI", 10),
         ).pack(side=tk.LEFT, padx=4)
     return var
@@ -259,10 +311,19 @@ def _make_toolbar(parent: tk.Misc) -> tk.Frame:
 
 def _toolbar_btn(bar: tk.Frame, text: str, command: object) -> tk.Button:
     btn = tk.Button(
-        bar, text=text, command=command,  # type: ignore[arg-type]
-        font=("Segoe UI", 9), fg=_CLR_FG, bg=_CLR_BTN,
-        activebackground=_CLR_BTN_ACTIVE, activeforeground=_CLR_FG,
-        relief=tk.FLAT, bd=0, padx=12, pady=4, cursor="hand2",
+        bar,
+        text=text,
+        command=command,  # type: ignore[arg-type]
+        font=("Segoe UI", 9),
+        fg=_CLR_FG,
+        bg=_CLR_BTN,
+        activebackground=_CLR_BTN_ACTIVE,
+        activeforeground=_CLR_FG,
+        relief=tk.FLAT,
+        bd=0,
+        padx=12,
+        pady=4,
+        cursor="hand2",
     )
     btn.pack(side=tk.LEFT, padx=4)
     return btn
@@ -272,9 +333,11 @@ def _toolbar_btn(bar: tk.Frame, text: str, command: object) -> tk.Button:
 # Panels
 # ══════════════════════════════════════════════════════════════════
 
+
 class _BasePanel(tk.Frame):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, bg=_CLR_BG)
         self._runner = runner
         self._status = status_var
@@ -282,25 +345,46 @@ class _BasePanel(tk.Frame):
 
 # ── Dashboard ─────────────────────────────────────────────────────
 class DashboardPanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="PATH Health Dashboard", font=("Segoe UI", 16, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(16, 4))
+        tk.Label(
+            self,
+            text="PATH Health Dashboard",
+            font=("Segoe UI", 16, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(16, 4))
         self._summary_label = tk.Label(
-            self, text="Loading...", font=("Consolas", 11),
-            fg=_CLR_FG, bg=_CLR_BG, wraplength=700, justify=tk.LEFT,
+            self,
+            text="Loading...",
+            font=("Consolas", 11),
+            fg=_CLR_FG,
+            bg=_CLR_BG,
+            wraplength=700,
+            justify=tk.LEFT,
         )
         self._summary_label.pack(pady=8, padx=16, anchor="w")
         self._warnings_label = tk.Label(
-            self, text="", font=("Consolas", 10),
-            fg=_CLR_WARN, bg=_CLR_BG, wraplength=700, justify=tk.LEFT,
+            self,
+            text="",
+            font=("Consolas", 10),
+            fg=_CLR_WARN,
+            bg=_CLR_BG,
+            wraplength=700,
+            justify=tk.LEFT,
         )
         self._warnings_label.pack(pady=4, padx=16, anchor="w")
 
         self._backup_label = tk.Label(
-            self, text="", font=("Consolas", 10),
-            fg=_CLR_DIM, bg=_CLR_BG, wraplength=700, justify=tk.LEFT,
+            self,
+            text="",
+            font=("Consolas", 10),
+            fg=_CLR_DIM,
+            bg=_CLR_BG,
+            wraplength=700,
+            justify=tk.LEFT,
         )
         self._backup_label.pack(pady=4, padx=16, anchor="w")
 
@@ -315,6 +399,7 @@ class DashboardPanel(_BasePanel):
     @staticmethod
     def _fetch() -> tuple["DiagnosticReport", int]:
         from pathkeeper.services import read_current_report, recent_backups
+
         _snap, report = read_current_report(Scope.ALL)
         backup_count = len(recent_backups(limit=9999))
         return report, backup_count
@@ -322,7 +407,11 @@ class DashboardPanel(_BasePanel):
     def _display(self, result: tuple["DiagnosticReport", int]) -> None:
         report, backup_count = result
         s = report.summary
-        health = "healthy" if s.invalid == 0 and s.duplicates == 0 and s.empty == 0 else "needs attention"
+        health = (
+            "healthy"
+            if s.invalid == 0 and s.duplicates == 0 and s.empty == 0
+            else "needs attention"
+        )
         self._summary_label.configure(
             text=(
                 f"Entries: {s.total}    Valid: {s.valid}    "
@@ -347,19 +436,31 @@ class DashboardPanel(_BasePanel):
 class InspectPanel(_BasePanel):
     _doctor_mode: bool = False
 
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Inspect PATH", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Inspect PATH",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Run", self._load)
 
-        self._tree = _make_tree(self, [
-            ("idx", "#", 40), ("status", "Status", 60), ("scope", "Scope", 70),
-            ("path", "Path", 520), ("notes", "Notes", 240),
-        ])
+        self._tree = _make_tree(
+            self,
+            [
+                ("idx", "#", 40),
+                ("status", "Status", 60),
+                ("scope", "Scope", 70),
+                ("path", "Path", 520),
+                ("notes", "Notes", 240),
+            ],
+        )
         self._summary_output = _make_output(self, height=4)
         self._load()
 
@@ -367,24 +468,30 @@ class InspectPanel(_BasePanel):
         scope_str = self._scope_var.get()
         self._status.set(f"Inspecting PATH ({scope_str})...")
         self._runner.run(
-            self._fetch, args=(scope_str,),
-            on_success=self._display, on_error=self._on_error,
+            self._fetch,
+            args=(scope_str,),
+            on_success=self._display,
+            on_error=self._on_error,
         )
 
     @staticmethod
     def _fetch(scope_str: str) -> "DiagnosticReport":
         from pathkeeper.services import read_current_report
+
         _snap, report = read_current_report(Scope.from_value(scope_str))
         return report
 
     def _display(self, report: "DiagnosticReport") -> None:
         self._populate_tree(report)
         s = report.summary
-        _output_set(self._summary_output, (
-            f"Entries: {s.total}  Valid: {s.valid}  Invalid: {s.invalid}  "
-            f"Duplicates: {s.duplicates}  Empty: {s.empty}\n"
-            + ("\n".join(f"! {w}" for w in s.warnings) if s.warnings else "")
-        ))
+        _output_set(
+            self._summary_output,
+            (
+                f"Entries: {s.total}  Valid: {s.valid}  Invalid: {s.invalid}  "
+                f"Duplicates: {s.duplicates}  Empty: {s.empty}\n"
+                + ("\n".join(f"! {w}" for w in s.warnings) if s.warnings else "")
+            ),
+        )
         self._status.set("Inspect complete")
 
     def _populate_tree(self, report: "DiagnosticReport") -> None:
@@ -392,9 +499,18 @@ class InspectPanel(_BasePanel):
             self._tree.delete(item)
         for entry in report.entries:
             tag, marker, notes = _entry_display(entry)
-            self._tree.insert("", tk.END, values=(
-                entry.index, marker, entry.scope.value, entry.value, notes,
-            ), tags=(tag,))
+            self._tree.insert(
+                "",
+                tk.END,
+                values=(
+                    entry.index,
+                    marker,
+                    entry.scope.value,
+                    entry.value,
+                    notes,
+                ),
+                tags=(tag,),
+            )
 
     def _on_error(self, exc: Exception) -> None:
         _output_set(self._summary_output, f"Error: {exc}")
@@ -404,25 +520,38 @@ class InspectPanel(_BasePanel):
 class DoctorPanel(InspectPanel):
     _doctor_mode: bool = True
 
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         # Re-implement to add doctor heading & recommendations
         _BasePanel.__init__(self, parent, runner, status_var)
-        tk.Label(self, text="Doctor", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Doctor",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Diagnose", self._load)
 
-        self._tree = _make_tree(self, [
-            ("idx", "#", 40), ("status", "Status", 60), ("scope", "Scope", 70),
-            ("path", "Path", 520), ("notes", "Notes", 240),
-        ])
+        self._tree = _make_tree(
+            self,
+            [
+                ("idx", "#", 40),
+                ("status", "Status", 60),
+                ("scope", "Scope", 70),
+                ("path", "Path", 520),
+                ("notes", "Notes", 240),
+            ],
+        )
         self._summary_output = _make_output(self, height=6)
         self._load()
 
     def _display(self, report: "DiagnosticReport") -> None:
         from pathkeeper.core.diagnostics import doctor_recommendations
+
         self._populate_tree(report)
         s = report.summary
         recs = doctor_recommendations(report)
@@ -452,11 +581,17 @@ def _entry_display(entry: "DiagnosticEntry") -> tuple[str, str, str]:
 
 # ── Backups ───────────────────────────────────────────────────────
 class BackupPanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Backups", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Backups",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
 
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Refresh", self._load_list)
@@ -467,63 +602,96 @@ class BackupPanel(_BasePanel):
         # Note entry
         note_frame = tk.Frame(self, bg=_CLR_BG)
         note_frame.pack(fill=tk.X, padx=8, pady=4)
-        tk.Label(note_frame, text="Note:", fg=_CLR_FG, bg=_CLR_BG,
-                 font=("Segoe UI", 10)).pack(side=tk.LEFT)
+        tk.Label(
+            note_frame, text="Note:", fg=_CLR_FG, bg=_CLR_BG, font=("Segoe UI", 10)
+        ).pack(side=tk.LEFT)
         self._note_var = tk.StringVar()
-        tk.Entry(note_frame, textvariable=self._note_var, width=50,
-                 bg=_CLR_BG_ALT, fg=_CLR_FG, insertbackground=_CLR_FG,
-                 font=("Consolas", 10), relief=tk.FLAT).pack(side=tk.LEFT, padx=8)
+        tk.Entry(
+            note_frame,
+            textvariable=self._note_var,
+            width=50,
+            bg=_CLR_BG_ALT,
+            fg=_CLR_FG,
+            insertbackground=_CLR_FG,
+            font=("Consolas", 10),
+            relief=tk.FLAT,
+        ).pack(side=tk.LEFT, padx=8)
 
-        self._tree = _make_tree(self, [
-            ("num", "#", 35), ("file", "Filename", 220),
-            ("ts", "Timestamp", 130), ("tag", "Tag", 70),
-            ("hash", "Hash", 100), ("sys", "Sys", 45), ("usr", "Usr", 45),
-            ("note", "Note", 200),
-        ])
+        self._tree = _make_tree(
+            self,
+            [
+                ("num", "#", 35),
+                ("file", "Filename", 220),
+                ("ts", "Timestamp", 130),
+                ("tag", "Tag", 70),
+                ("hash", "Hash", 100),
+                ("sys", "Sys", 45),
+                ("usr", "Usr", 45),
+                ("note", "Note", 200),
+            ],
+        )
         self._detail_output = _make_output(self, height=8)
         self._load_list()
 
     def _load_list(self) -> None:
         self._status.set("Loading backups...")
-        self._runner.run(self._fetch_list, on_success=self._display_list, on_error=self._on_error)
+        self._runner.run(
+            self._fetch_list, on_success=self._display_list, on_error=self._on_error
+        )
 
     @staticmethod
     def _fetch_list() -> list["BackupRecord"]:
         from pathkeeper.services import recent_backups
+
         return recent_backups(limit=50)
 
     def _display_list(self, records: list["BackupRecord"]) -> None:
         from pathkeeper.core.backup import backup_content_hash
         from pathkeeper.services import format_backup_timestamp_utc
+
         for item in self._tree.get_children():
             self._tree.delete(item)
         for i, rec in enumerate(records, 1):
             fname = rec.source_file.name if rec.source_file else "<unsaved>"
-            self._tree.insert("", tk.END, values=(
-                i, fname, format_backup_timestamp_utc(rec.timestamp),
-                rec.tag, backup_content_hash(rec),
-                len(rec.system_path), len(rec.user_path), rec.note,
-            ))
+            self._tree.insert(
+                "",
+                tk.END,
+                values=(
+                    i,
+                    fname,
+                    format_backup_timestamp_utc(rec.timestamp),
+                    rec.tag,
+                    backup_content_hash(rec),
+                    len(rec.system_path),
+                    len(rec.user_path),
+                    rec.note,
+                ),
+            )
         self._status.set(f"{len(records)} backup(s) loaded")
 
     def _create_backup(self) -> None:
         note = self._note_var.get().strip()
         self._status.set("Creating backup...")
         self._runner.run(
-            self._do_create, args=(note,),
-            on_success=self._on_created, on_error=self._on_error,
+            self._do_create,
+            args=(note,),
+            on_success=self._on_created,
+            on_error=self._on_error,
         )
 
     @staticmethod
     def _do_create(note: str) -> str | None:
         from pathkeeper.services import backup_now
+
         dest = backup_now(tag="manual", note=note)
         return str(dest) if dest else None
 
     def _on_created(self, result: str | None) -> None:
         if result is None:
             self._status.set("Backup skipped (unchanged)")
-            messagebox.showinfo("Backup", "Skipped — PATH is unchanged since last backup.")
+            messagebox.showinfo(
+                "Backup", "Skipped — PATH is unchanged since last backup."
+            )
         else:
             self._status.set(f"Backup created: {result}")
             messagebox.showinfo("Backup", f"Created: {result}")
@@ -532,24 +700,30 @@ class BackupPanel(_BasePanel):
     def _show_selected(self) -> None:
         selection = self._tree.selection()
         if not selection:
-            messagebox.showwarning("No selection", "Select a backup from the list first.")
+            messagebox.showwarning(
+                "No selection", "Select a backup from the list first."
+            )
             return
         values = self._tree.item(selection[0], "values")
         identifier = str(values[1])  # filename
         self._runner.run(
-            self._fetch_detail, args=(identifier,),
-            on_success=self._display_detail, on_error=self._on_error,
+            self._fetch_detail,
+            args=(identifier,),
+            on_success=self._display_detail,
+            on_error=self._on_error,
         )
 
     @staticmethod
     def _fetch_detail(identifier: str) -> "BackupRecord":
         from pathkeeper.services import select_backup
+
         rec, _ = select_backup(identifier)
         return rec
 
     def _display_detail(self, rec: "BackupRecord") -> None:
         from pathkeeper.core.backup import backup_content_hash
         from pathkeeper.services import format_backup_timestamp_utc
+
         lines = [
             f"File: {rec.source_file.name if rec.source_file else '<unsaved>'}",
             f"Timestamp: {format_backup_timestamp_utc(rec.timestamp)}",
@@ -574,19 +748,29 @@ class BackupPanel(_BasePanel):
             return
         values = self._tree.item(selection[0], "values")
         identifier = str(values[1])
-        if not messagebox.askyesno("Restore", f"Restore PATH from {identifier}?\n\nA pre-restore backup will be created."):
+        if not messagebox.askyesno(
+            "Restore",
+            f"Restore PATH from {identifier}?\n\nA pre-restore backup will be created.",
+        ):
             return
         self._status.set("Restoring...")
         self._runner.run(
-            self._do_restore, args=(identifier,),
-            on_success=self._on_restored, on_error=self._on_error,
+            self._do_restore,
+            args=(identifier,),
+            on_success=self._on_restored,
+            on_error=self._on_error,
         )
 
     @staticmethod
     def _do_restore(identifier: str) -> str:
         from pathkeeper.core.diff import compute_diff, render_diff
         from pathkeeper.core.path_writer import write_changed_snapshot
-        from pathkeeper.services import backup_now, select_backup, get_snapshot_and_adapter
+        from pathkeeper.services import (
+            backup_now,
+            select_backup,
+            get_snapshot_and_adapter,
+        )
+
         snapshot, adapter, os_name = get_snapshot_and_adapter()
         rec, _ = select_backup(identifier)
         backup_now(tag="pre-restore", note=f"Before restore {identifier}")
@@ -610,11 +794,17 @@ class BackupPanel(_BasePanel):
 
 # ── Edit PATH ─────────────────────────────────────────────────────
 class EditPanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Edit PATH", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Edit PATH",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self, default="user")
 
         bar = _make_toolbar(self)
@@ -628,10 +818,15 @@ class EditPanel(_BasePanel):
         _toolbar_btn(bar, "Preview Diff", self._preview)
         _toolbar_btn(bar, "Write", self._write)
 
-        self._tree = _make_tree(self, [
-            ("idx", "#", 40), ("status", "Status", 60), ("path", "Path", 620),
-            ("notes", "Notes", 200),
-        ])
+        self._tree = _make_tree(
+            self,
+            [
+                ("idx", "#", 40),
+                ("status", "Status", 60),
+                ("path", "Path", 620),
+                ("notes", "Notes", 200),
+            ],
+        )
         self._diff_output = _make_output(self, height=6)
 
         self._session: EditSession | None = None
@@ -648,13 +843,16 @@ class EditPanel(_BasePanel):
             self._scope_var.set("user")
         self._status.set("Loading PATH for editing...")
         self._runner.run(
-            self._fetch, args=(scope_str,),
-            on_success=self._init_session, on_error=self._on_error,
+            self._fetch,
+            args=(scope_str,),
+            on_success=self._init_session,
+            on_error=self._on_error,
         )
 
     @staticmethod
     def _fetch(scope_str: str) -> tuple[object, ...]:
         from pathkeeper.services import get_snapshot_and_adapter
+
         snapshot, adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         entries = snapshot.entries_for_scope(scope)
@@ -663,6 +861,7 @@ class EditPanel(_BasePanel):
     def _init_session(self, result: tuple[object, ...]) -> None:
         from pathkeeper.core.edit import EditSession
         from pathkeeper.core.path_writer import PathWriter
+
         snapshot, adapter, os_name, scope, entries = result
         self._snapshot = snapshot  # type: ignore[assignment]
         self._adapter = adapter  # type: ignore[assignment]
@@ -677,6 +876,7 @@ class EditPanel(_BasePanel):
         if self._session is None:
             return
         from pathkeeper.core.diagnostics import analyze_snapshot, join_path
+
         scope = self._edit_scope
         entries = self._session.entries
         report = analyze_snapshot(
@@ -690,9 +890,17 @@ class EditPanel(_BasePanel):
             self._tree.delete(item)
         for entry in report.entries:
             tag, marker, notes = _entry_display(entry)
-            self._tree.insert("", tk.END, values=(
-                entry.index, marker, entry.value, notes,
-            ), tags=(tag,))
+            self._tree.insert(
+                "",
+                tk.END,
+                values=(
+                    entry.index,
+                    marker,
+                    entry.value,
+                    notes,
+                ),
+                tags=(tag,),
+            )
 
     def _add_entry(self) -> None:
         if self._session is None:
@@ -754,7 +962,9 @@ class EditPanel(_BasePanel):
             return
         idx = self._tree.index(sel[0])
         current = self._session.entries[idx]
-        new_path = filedialog.askdirectory(title="Select replacement directory", initialdir=current)
+        new_path = filedialog.askdirectory(
+            title="Select replacement directory", initialdir=current
+        )
         if not new_path:
             return
         self._session.replace(idx, new_path)
@@ -774,6 +984,7 @@ class EditPanel(_BasePanel):
         if self._session is None:
             return
         from pathkeeper.core.diff import render_diff
+
         diff = self._session.diff()
         _output_set(self._diff_output, render_diff(diff))
 
@@ -785,24 +996,41 @@ class EditPanel(_BasePanel):
             messagebox.showinfo("No changes", "No staged changes to write.")
             return
         from pathkeeper.core.diff import render_diff
+
         diff_text = render_diff(diff)
-        if not messagebox.askyesno("Write PATH", f"Apply these changes?\n\n{diff_text}"):
+        if not messagebox.askyesno(
+            "Write PATH", f"Apply these changes?\n\n{diff_text}"
+        ):
             return
         self._status.set("Writing PATH...")
         self._runner.run(
             self._do_write,
-            args=(self._adapter, self._snapshot, self._session.entries,
-                  self._edit_scope, self._os_name),
-            on_success=self._on_written, on_error=self._on_error,
+            args=(
+                self._adapter,
+                self._snapshot,
+                self._session.entries,
+                self._edit_scope,
+                self._os_name,
+            ),
+            on_success=self._on_written,
+            on_error=self._on_error,
         )
 
     @staticmethod
-    def _do_write(adapter: "PathWriter", snapshot: "PathSnapshot", entries: list[str],
-                  scope: "Scope", os_name: str) -> str:
+    def _do_write(
+        adapter: "PathWriter",
+        snapshot: "PathSnapshot",
+        entries: list[str],
+        scope: "Scope",
+        os_name: str,
+    ) -> str:
         from pathkeeper.core.diagnostics import join_path
         from pathkeeper.core.path_writer import write_changed_snapshot
         from pathkeeper.services import backup_now
-        updated = snapshot.with_scope_entries(scope, entries, join_path(entries, os_name))
+
+        updated = snapshot.with_scope_entries(
+            scope, entries, join_path(entries, os_name)
+        )
         backup_now(tag="pre-edit", note="Before GUI edit")
         write_changed_snapshot(adapter, snapshot, updated, scope)
         return "PATH written successfully."
@@ -819,11 +1047,17 @@ class EditPanel(_BasePanel):
 
 # ── Dedupe ────────────────────────────────────────────────────────
 class DedupePanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Dedupe PATH", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Dedupe PATH",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Preview", self._preview)
@@ -834,18 +1068,22 @@ class DedupePanel(_BasePanel):
         scope_str = self._scope_var.get()
         self._status.set("Computing dedupe preview...")
         self._runner.run(
-            self._compute, args=(scope_str,),
+            self._compute,
+            args=(scope_str,),
             on_success=lambda r: self._show_result(r, preview=True),
             on_error=self._on_error,
         )
 
     def _apply(self) -> None:
         scope_str = self._scope_var.get()
-        if not messagebox.askyesno("Dedupe", "Apply dedupe changes? A backup will be created first."):
+        if not messagebox.askyesno(
+            "Dedupe", "Apply dedupe changes? A backup will be created first."
+        ):
             return
         self._status.set("Applying dedupe...")
         self._runner.run(
-            self._do_apply, args=(scope_str,),
+            self._do_apply,
+            args=(scope_str,),
             on_success=lambda r: self._show_result(r, preview=False),
             on_error=self._on_error,
         )
@@ -855,6 +1093,7 @@ class DedupePanel(_BasePanel):
         from pathkeeper.core.dedupe import dedupe_entries
         from pathkeeper.core.diff import compute_diff, render_diff
         from pathkeeper.services import get_snapshot_and_adapter
+
         snapshot, _adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         lines: list[str] = []
@@ -877,6 +1116,7 @@ class DedupePanel(_BasePanel):
         from pathkeeper.core.path_writer import write_changed_snapshot
         from pathkeeper.models import PathSnapshot
         from pathkeeper.services import backup_now, get_snapshot_and_adapter
+
         snapshot, adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         backup_now(tag="pre-dedupe", note="Before GUI dedupe")
@@ -884,13 +1124,16 @@ class DedupePanel(_BasePanel):
             sys_res = dedupe_entries(snapshot.system_path, os_name)
             usr_res = dedupe_entries(snapshot.user_path, os_name)
             updated = PathSnapshot(
-                system_path=sys_res.cleaned, user_path=usr_res.cleaned,
+                system_path=sys_res.cleaned,
+                user_path=usr_res.cleaned,
                 system_path_raw=join_path(sys_res.cleaned, os_name),
                 user_path_raw=join_path(usr_res.cleaned, os_name),
             )
         else:
             res = dedupe_entries(snapshot.entries_for_scope(scope), os_name)
-            updated = snapshot.with_scope_entries(scope, res.cleaned, join_path(res.cleaned, os_name))
+            updated = snapshot.with_scope_entries(
+                scope, res.cleaned, join_path(res.cleaned, os_name)
+            )
         write_changed_snapshot(adapter, snapshot, updated, scope)
         diff = compute_diff(
             snapshot.entries_for_scope(scope),
@@ -910,20 +1153,30 @@ class DedupePanel(_BasePanel):
 
 # ── Populate ──────────────────────────────────────────────────────
 class PopulatePanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Populate PATH", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Populate PATH",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self, default="user")
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Discover", self._discover)
         _toolbar_btn(bar, "Add Selected", self._add_selected)
 
-        self._tree = _make_tree(self, [
-            ("cat", "Category", 120), ("name", "Tool", 150),
-            ("path", "Path", 500),
-        ])
+        self._tree = _make_tree(
+            self,
+            [
+                ("cat", "Category", 120),
+                ("name", "Tool", 150),
+                ("path", "Path", 500),
+            ],
+        )
         self._output = _make_output(self, height=4)
 
     def _discover(self) -> None:
@@ -935,6 +1188,7 @@ class PopulatePanel(_BasePanel):
         from pathkeeper.config import load_config
         from pathkeeper.core.populate import discover_tools, load_catalog
         from pathkeeper.services import get_snapshot_and_adapter
+
         snapshot, _adapter, os_name = get_snapshot_and_adapter()
         config = load_config()
         catalog = load_catalog(config)
@@ -947,7 +1201,11 @@ class PopulatePanel(_BasePanel):
             self._tree.delete(child)
         for cat, name, path in items:
             self._tree.insert("", tk.END, values=(cat, name, path))
-        msg = f"{len(items)} tool path(s) found" if items else "No missing tool directories found"
+        msg = (
+            f"{len(items)} tool path(s) found"
+            if items
+            else "No missing tool directories found"
+        )
         _output_set(self._output, msg)
         self._status.set(msg)
 
@@ -960,12 +1218,16 @@ class PopulatePanel(_BasePanel):
         scope_str = self._scope_var.get()
         if scope_str == "all":
             scope_str = "user"
-        if not messagebox.askyesno("Populate", f"Add {len(paths)} path(s) to {scope_str} PATH?"):
+        if not messagebox.askyesno(
+            "Populate", f"Add {len(paths)} path(s) to {scope_str} PATH?"
+        ):
             return
         self._status.set("Adding paths...")
         self._runner.run(
-            self._do_add, args=(paths, scope_str),
-            on_success=self._on_added, on_error=self._on_error,
+            self._do_add,
+            args=(paths, scope_str),
+            on_success=self._on_added,
+            on_error=self._on_error,
         )
 
     @staticmethod
@@ -973,11 +1235,14 @@ class PopulatePanel(_BasePanel):
         from pathkeeper.core.diagnostics import join_path
         from pathkeeper.core.path_writer import write_changed_snapshot
         from pathkeeper.services import backup_now, get_snapshot_and_adapter
+
         snapshot, adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         backup_now(tag="pre-populate", note="Before GUI populate")
         new_entries = [*snapshot.entries_for_scope(scope), *paths]
-        updated = snapshot.with_scope_entries(scope, new_entries, join_path(new_entries, os_name))
+        updated = snapshot.with_scope_entries(
+            scope, new_entries, join_path(new_entries, os_name)
+        )
         write_changed_snapshot(adapter, snapshot, updated, scope)
         return f"Added {len(paths)} path(s)"
 
@@ -993,11 +1258,17 @@ class PopulatePanel(_BasePanel):
 
 # ── Repair ────────────────────────────────────────────────────────
 class RepairPanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Repair Truncated", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Repair Truncated",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         self._scope_var = _make_scope_selector(self)
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Scan", self._scan)
@@ -1009,8 +1280,10 @@ class RepairPanel(_BasePanel):
         scope_str = self._scope_var.get()
         self._status.set("Scanning for truncated entries...")
         self._runner.run(
-            self._fetch, args=(scope_str,),
-            on_success=self._display, on_error=self._on_error,
+            self._fetch,
+            args=(scope_str,),
+            on_success=self._display,
+            on_error=self._on_error,
         )
 
     @staticmethod
@@ -1019,17 +1292,22 @@ class RepairPanel(_BasePanel):
         from pathkeeper.core.backup import list_backups
         from pathkeeper.core.repair_truncated import find_truncated_repairs
         from pathkeeper.services import get_snapshot_and_adapter
+
         snapshot, _adapter, os_name = get_snapshot_and_adapter()
         scope = Scope.from_value(scope_str)
         repairs = find_truncated_repairs(
-            snapshot=snapshot, scope=scope, os_name=os_name,
+            snapshot=snapshot,
+            scope=scope,
+            os_name=os_name,
             records=list_backups(backups_home()),
         )
         if not repairs:
             return "No likely truncated PATH entries were found."
         lines = ["Possible truncated PATH repairs:\n"]
         for repair in repairs:
-            lines.append(f"[{repair.scope.value}] Entry #{repair.display_index}: {repair.value}")
+            lines.append(
+                f"[{repair.scope.value}] Entry #{repair.display_index}: {repair.value}"
+            )
             for i, cand in enumerate(repair.candidates, 1):
                 lines.append(f"  {i}. {cand.path} ({cand.source})")
             lines.append("")
@@ -1046,11 +1324,17 @@ class RepairPanel(_BasePanel):
 
 # ── Schedule ──────────────────────────────────────────────────────
 class SchedulePanel(_BasePanel):
-    def __init__(self, parent: tk.Misc, runner: _BackgroundRunner,
-                 status_var: tk.StringVar) -> None:
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
         super().__init__(parent, runner, status_var)
-        tk.Label(self, text="Schedule", font=("Segoe UI", 14, "bold"),
-                 fg=_CLR_ACCENT, bg=_CLR_BG).pack(pady=(12, 4))
+        tk.Label(
+            self,
+            text="Schedule",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
         bar = _make_toolbar(self)
         _toolbar_btn(bar, "Check Status", self._check)
         _toolbar_btn(bar, "Install", self._install)
@@ -1059,12 +1343,15 @@ class SchedulePanel(_BasePanel):
         self._check()
 
     def _check(self) -> None:
-        self._runner.run(self._fetch_status, on_success=self._display, on_error=self._on_error)
+        self._runner.run(
+            self._fetch_status, on_success=self._display, on_error=self._on_error
+        )
 
     @staticmethod
     def _fetch_status() -> str:
         from pathkeeper.core.schedule import schedule_status
         from pathkeeper.platform import normalized_os_name
+
         status = schedule_status(normalized_os_name())
         if status.enabled:
             return f"Schedule is enabled: {status.detail}"
@@ -1074,23 +1361,29 @@ class SchedulePanel(_BasePanel):
     def _do_install() -> str:
         from pathkeeper.core.schedule import install_schedule
         from pathkeeper.platform import normalized_os_name
+
         return install_schedule(normalized_os_name(), "startup")
 
     @staticmethod
     def _do_remove() -> str:
         from pathkeeper.core.schedule import remove_schedule
         from pathkeeper.platform import normalized_os_name
+
         return remove_schedule(normalized_os_name())
 
     def _install(self) -> None:
         if not messagebox.askyesno("Schedule", "Install automatic startup backups?"):
             return
-        self._runner.run(self._do_install, on_success=self._display, on_error=self._on_error)
+        self._runner.run(
+            self._do_install, on_success=self._display, on_error=self._on_error
+        )
 
     def _remove(self) -> None:
         if not messagebox.askyesno("Schedule", "Remove automatic startup backups?"):
             return
-        self._runner.run(self._do_remove, on_success=self._display, on_error=self._on_error)
+        self._runner.run(
+            self._do_remove, on_success=self._display, on_error=self._on_error
+        )
 
     def _display(self, text: str) -> None:
         _output_set(self._output, text)

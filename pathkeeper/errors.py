@@ -19,4 +19,3 @@ class BackupNotFoundError(PathkeeperError):
 
 class UserCancelledError(PathkeeperError):
     exit_code = 5
-

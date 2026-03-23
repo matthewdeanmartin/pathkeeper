@@ -6,7 +6,9 @@ from pathkeeper.core.populate import discover_tools
 from pathkeeper.models import CatalogTool
 
 
-def test_discover_tools_keeps_latest_python_version_with_scripts(tmp_path: Path) -> None:
+def test_discover_tools_keeps_latest_python_version_with_scripts(
+    tmp_path: Path,
+) -> None:
     python311 = tmp_path / "Python311"
     python311_scripts = python311 / "Scripts"
     python313 = tmp_path / "Python313"
@@ -18,7 +20,10 @@ def test_discover_tools_keeps_latest_python_version_with_scripts(tmp_path: Path)
             name="Python",
             category="Programming Languages",
             os_name="windows",
-            patterns=[str(tmp_path / "Python3*"), str(tmp_path / "Python3*" / "Scripts")],
+            patterns=[
+                str(tmp_path / "Python3*"),
+                str(tmp_path / "Python3*" / "Scripts"),
+            ],
         )
     ]
 

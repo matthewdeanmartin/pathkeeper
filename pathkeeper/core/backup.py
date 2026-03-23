@@ -11,7 +11,6 @@ from pathkeeper.config import AppConfig
 from pathkeeper.errors import BackupNotFoundError
 from pathkeeper.models import BackupRecord, PathSnapshot
 
-
 BACKUP_VERSION = 1
 logger = logging.getLogger(__name__)
 
@@ -58,8 +57,15 @@ def create_backup(
         user_path_raw=snapshot.user_path_raw,
     )
     latest = _load_latest_backup(backup_dir)
-    if not force and latest is not None and latest.snapshot == snapshot and latest.os_name == os_name:
-        logger.warning("Skipping backup because the current PATH matches the latest saved backup.")
+    if (
+        not force
+        and latest is not None
+        and latest.snapshot == snapshot
+        and latest.os_name == os_name
+    ):
+        logger.warning(
+            "Skipping backup because the current PATH matches the latest saved backup."
+        )
         return None, None
     logger.info("Creating %s backup in %s", tag, backup_dir)
     destination = backup_dir / backup_filename(timestamp, tag)
@@ -100,7 +106,9 @@ def backup_content_hash(record: BackupRecord) -> str:
         "system_path_raw": record.system_path_raw,
         "user_path_raw": record.user_path_raw,
     }
-    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     return digest[:12]
 
 
@@ -122,12 +130,16 @@ def resolve_backup(identifier: str, backup_dir: Path) -> BackupRecord:
     for record in list_backups(backup_dir):
         if record.source_file is None:
             continue
-        if record.source_file.name == identifier or record.source_file.stem.startswith(identifier):
+        if record.source_file.name == identifier or record.source_file.stem.startswith(
+            identifier
+        ):
             return record
     raise BackupNotFoundError(f"Backup not found: {identifier}")
 
 
-def prune_backups(backup_dir: Path, config: AppConfig, records: list[BackupRecord] | None = None) -> None:
+def prune_backups(
+    backup_dir: Path, config: AppConfig, records: list[BackupRecord] | None = None
+) -> None:
     if records is None:
         records = list_backups(backup_dir)
     auto_records = [record for record in records if record.tag == "auto"]
@@ -156,4 +168,3 @@ def prune_backups(backup_dir: Path, config: AppConfig, records: list[BackupRecor
             removed += 1
     if removed:
         logger.info("Pruned %s old backup(s).", removed)
-

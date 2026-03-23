@@ -10,6 +10,7 @@ from pathkeeper.errors import PermissionDeniedError
 
 if sys.platform == "win32":
     import winreg as _winreg
+
     _WINREG: Any = _winreg
 else:
     _WINREG: Any = None
@@ -40,7 +41,10 @@ class WindowsPlatform:
         if key_name in self._registry_cache:
             return self._registry_cache[key_name]
         if _WINREG is None:
-            result: tuple[list[str], str] = (split_path(self._fallback_raw, self.os_name), self._fallback_raw)
+            result: tuple[list[str], str] = (
+                split_path(self._fallback_raw, self.os_name),
+                self._fallback_raw,
+            )
         else:
             with _WINREG.OpenKey(root, key_name) as key:
                 value, _value_type = _WINREG.QueryValueEx(key, REG_PATH_VALUE)
@@ -50,16 +54,24 @@ class WindowsPlatform:
         return result
 
     def read_system_path(self) -> list[str]:
-        return self._read_registry(_WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY)[0]
+        return self._read_registry(
+            _WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY
+        )[0]
 
     def read_user_path(self) -> list[str]:
-        return self._read_registry(_WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY)[0]
+        return self._read_registry(
+            _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY
+        )[0]
 
     def read_system_path_raw(self) -> str:
-        return self._read_registry(_WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY)[1]
+        return self._read_registry(
+            _WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY
+        )[1]
 
     def read_user_path_raw(self) -> str:
-        return self._read_registry(_WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY)[1]
+        return self._read_registry(
+            _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY
+        )[1]
 
     def _write_registry(self, root: Any, key_name: str, entries: list[str]) -> None:
         raw = ";".join(entries)
@@ -78,10 +90,14 @@ class WindowsPlatform:
         self._broadcast_change()
 
     def write_system_path(self, entries: list[str]) -> None:
-        self._write_registry(_WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY, entries)
+        self._write_registry(
+            _WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY, entries
+        )
 
     def write_user_path(self, entries: list[str]) -> None:
-        self._write_registry(_WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY, entries)
+        self._write_registry(
+            _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY, entries
+        )
 
     def ensure_system_writable(self) -> None:
         if os.name != "nt":
@@ -103,5 +119,12 @@ class WindowsPlatform:
         if os.name != "nt":
             return
         send_message_timeout = getattr(ctypes, "windll").user32.SendMessageTimeoutW
-        send_message_timeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, "Environment", SMTO_ABORTIFHUNG, 5000, None)
-
+        send_message_timeout(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            0,
+            "Environment",
+            SMTO_ABORTIFHUNG,
+            5000,
+            None,
+        )

@@ -33,13 +33,17 @@ def _clean_windows_task_error(text: str) -> str:
 def schedule_status(os_name: str) -> ScheduleStatus:
     if os_name == "windows":
         result = _run(["schtasks", "/Query", "/TN", "pathkeeper"])
-        return ScheduleStatus(result.returncode == 0, result.stdout.strip() or result.stderr.strip())
+        return ScheduleStatus(
+            result.returncode == 0, result.stdout.strip() or result.stderr.strip()
+        )
     if os_name == "darwin":
         plist = Path.home() / "Library" / "LaunchAgents" / "com.pathkeeper.backup.plist"
         return ScheduleStatus(plist.exists(), str(plist))
     timer = Path.home() / ".config" / "systemd" / "user" / "pathkeeper.timer"
     cron = Path.home() / ".pathkeeper" / "pathkeeper.cron"
-    return ScheduleStatus(timer.exists() or cron.exists(), str(timer if timer.exists() else cron))
+    return ScheduleStatus(
+        timer.exists() or cron.exists(), str(timer if timer.exists() else cron)
+    )
 
 
 def install_schedule(os_name: str, interval: str, *, trigger: str = "startup") -> str:
@@ -47,12 +51,26 @@ def install_schedule(os_name: str, interval: str, *, trigger: str = "startup") -
         schedule = "ONSTART" if trigger == "startup" else "ONLOGON"
         if interval != "startup" and trigger == "startup":
             schedule = "MINUTE"
-        command = ["schtasks", "/Create", "/F", "/TN", "pathkeeper", "/TR", _command_line(), "/SC", schedule]
+        command = [
+            "schtasks",
+            "/Create",
+            "/F",
+            "/TN",
+            "pathkeeper",
+            "/TR",
+            _command_line(),
+            "/SC",
+            schedule,
+        ]
         if interval != "startup" and schedule == "MINUTE":
             command.extend(["/MO", interval.removesuffix("m")])
         result = _run(command)
         if result.returncode != 0:
-            detail = _clean_windows_task_error(result.stderr or result.stdout or "Failed to install Windows scheduled task.")
+            detail = _clean_windows_task_error(
+                result.stderr
+                or result.stdout
+                or "Failed to install Windows scheduled task."
+            )
             if "access is denied" in detail.lower():
                 raise PermissionDeniedError(detail)
             raise PathkeeperError(detail)
@@ -138,7 +156,9 @@ def remove_schedule(os_name: str) -> str:
     if os_name == "windows":
         result = _run(["schtasks", "/Delete", "/F", "/TN", "pathkeeper"])
         if result.returncode != 0:
-            raise PathkeeperError(result.stderr.strip() or "Failed to remove Windows scheduled task.")
+            raise PathkeeperError(
+                result.stderr.strip() or "Failed to remove Windows scheduled task."
+            )
         return "Removed Windows scheduled task."
     if os_name == "darwin":
         plist = Path.home() / "Library" / "LaunchAgents" / "com.pathkeeper.backup.plist"
@@ -153,4 +173,3 @@ def remove_schedule(os_name: str) -> str:
         _run(["systemctl", "--user", "disable", "--now", "pathkeeper.timer"])
         _run(["systemctl", "--user", "daemon-reload"])
     return "Removed Linux schedule files."
-

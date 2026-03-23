@@ -25,11 +25,23 @@ def _backup_record(*, user_path: list[str]) -> BackupRecord:
 
 
 def test_find_truncated_repairs_uses_backup_suffix_matches(tmp_path: Path) -> None:
-    full_dir = tmp_path / "Users" / "matth" / "AppData" / "Local" / "Programs" / "Python" / "Python314" / "Scripts"
+    full_dir = (
+        tmp_path
+        / "Users"
+        / "matth"
+        / "AppData"
+        / "Local"
+        / "Programs"
+        / "Python"
+        / "Python314"
+        / "Scripts"
+    )
     full_dir.mkdir(parents=True)
     snapshot = PathSnapshot(
         system_path=[],
-        user_path=["Users\\matth\\AppData\\Local\\Programs\\Python\\Python314\\Scripts"],
+        user_path=[
+            "Users\\matth\\AppData\\Local\\Programs\\Python\\Python314\\Scripts"
+        ],
         system_path_raw="",
         user_path_raw="Users\\matth\\AppData\\Local\\Programs\\Python\\Python314\\Scripts",
     )
@@ -41,7 +53,10 @@ def test_find_truncated_repairs_uses_backup_suffix_matches(tmp_path: Path) -> No
         search_roots=[],
     )
     assert len(repairs) == 1
-    assert repairs[0].value == "Users\\matth\\AppData\\Local\\Programs\\Python\\Python314\\Scripts"
+    assert (
+        repairs[0].value
+        == "Users\\matth\\AppData\\Local\\Programs\\Python\\Python314\\Scripts"
+    )
     assert repairs[0].candidates[0].path == str(full_dir)
     assert repairs[0].candidates[0].source.startswith("backup ")
 

@@ -8,7 +8,6 @@ from typing import Mapping
 from pathkeeper.errors import PathkeeperError
 from pathkeeper.theme import t
 
-
 MenuHandler = Callable[[Namespace], int]
 
 
@@ -57,4 +56,3 @@ def run_interactive(dispatch: Mapping[str, MenuEntry]) -> int:
         if return_code != 0:
             print(t.error(f"\n  {selected_entry.label} failed (exit {return_code})."))
         print()
-

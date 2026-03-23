@@ -37,7 +37,8 @@ class LinuxPlatform(UnixPlatformBase):
             updated.append(rendered)
         try:
             self._system_path_file.parent.mkdir(parents=True, exist_ok=True)
-            self._system_path_file.write_text("\n".join(updated) + "\n", encoding="utf-8")
+            self._system_path_file.write_text(
+                "\n".join(updated) + "\n", encoding="utf-8"
+            )
         except PermissionError as error:
             raise PermissionDeniedError(str(error)) from error
-

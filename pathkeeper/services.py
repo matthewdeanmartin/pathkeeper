@@ -4,6 +4,7 @@ This module provides orchestration helpers that load config, read snapshots,
 and coordinate core modules.  Neither ``cli`` nor ``gui`` should duplicate
 this logic.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 # Snapshot & adapter helpers
 # ------------------------------------------------------------------
 
+
 def get_snapshot_and_adapter() -> "tuple[PathSnapshot, PathWriter, str]":
     """Return (snapshot, platform_adapter, os_name)."""
     config = load_config()
@@ -49,6 +51,7 @@ def get_snapshot_and_adapter() -> "tuple[PathSnapshot, PathWriter, str]":
 # ------------------------------------------------------------------
 # Diagnostics
 # ------------------------------------------------------------------
+
 
 def read_current_report(scope: Scope) -> tuple["PathSnapshot", "DiagnosticReport"]:
     """Read the live PATH and return a diagnostic report."""
@@ -71,11 +74,14 @@ def read_current_report(scope: Scope) -> tuple["PathSnapshot", "DiagnosticReport
 # Backups
 # ------------------------------------------------------------------
 
+
 def recent_backups(*, limit: int = 20) -> list["BackupRecord"]:
     return list_backups(backups_home())[:limit]
 
 
-def select_backup(identifier: str | None) -> tuple["BackupRecord", list["BackupRecord"]]:
+def select_backup(
+    identifier: str | None,
+) -> tuple["BackupRecord", list["BackupRecord"]]:
     records = list_backups(backups_home())
     if not records:
         raise PathkeeperError("No backups available.")

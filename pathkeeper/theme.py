@@ -14,6 +14,7 @@ Color is suppressed when:
   - display.color = false in config
   - --no-color flag is passed (call Theme.disable())
 """
+
 from __future__ import annotations
 
 import os
@@ -123,7 +124,9 @@ class Theme:
         """Dry-run notice."""
         return self._wrap(self._DIM + self._YELLOW, text)
 
-    def path_entry(self, text: str, *, exists: bool, duplicate: bool, empty: bool, is_file: bool) -> str:
+    def path_entry(
+        self, text: str, *, exists: bool, duplicate: bool, empty: bool, is_file: bool
+    ) -> str:
         if empty:
             return self._wrap(self._DIM, text)
         if duplicate:

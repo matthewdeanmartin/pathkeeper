@@ -1,4 +1,5 @@
 """Tests for `doctor --explain` and explain_entry()."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,10 +13,10 @@ from pathkeeper.config import AppConfig
 from pathkeeper.core.diagnostics import explain_entry
 from pathkeeper.models import DiagnosticEntry, Scope
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_entry(
     *,
@@ -66,8 +67,11 @@ class StubAdapter:
 # Unit tests for explain_entry
 # ---------------------------------------------------------------------------
 
+
 def test_explain_entry_empty() -> None:
-    entry = _make_entry(value="", is_empty=True, exists=False, is_dir=False, expanded_value="")
+    entry = _make_entry(
+        value="", is_empty=True, exists=False, is_dir=False, expanded_value=""
+    )
     explanation = explain_entry(entry, "linux")
     assert "empty" in explanation.lower()
     assert "pathkeeper dedupe" in explanation
@@ -147,6 +151,7 @@ def test_explain_entry_healthy_entry(tmp_path: Path) -> None:
 # CLI integration tests for `doctor --explain`
 # ---------------------------------------------------------------------------
 
+
 def test_doctor_explain_shows_explanation_for_missing_entry(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
@@ -157,7 +162,11 @@ def test_doctor_explain_shows_explanation_for_missing_entry(
     exit_code = cli.run(["doctor", "--explain"])
     output = capsys.readouterr().out
     assert exit_code == 0
-    assert "does not exist" in output.lower() or "uninstalled" in output.lower() or "moved" in output.lower()
+    assert (
+        "does not exist" in output.lower()
+        or "uninstalled" in output.lower()
+        or "moved" in output.lower()
+    )
 
 
 def test_doctor_explain_shows_explanation_for_duplicate(

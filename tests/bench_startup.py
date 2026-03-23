@@ -28,7 +28,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -51,6 +50,7 @@ def _time(fn: "Callable[[], object]", *, repeat: int = 5) -> float:
 # Benchmark: subprocess import time
 # ---------------------------------------------------------------------------
 
+
 def _measure_import_ms(repeat: int = 5) -> float:
     """
     Spawn a fresh Python process and measure the time from invocation to
@@ -70,6 +70,7 @@ def _measure_import_ms(repeat: int = 5) -> float:
 # ---------------------------------------------------------------------------
 # Benchmark: in-process backup command
 # ---------------------------------------------------------------------------
+
 
 def _make_stub_adapter(tmp_path: Path) -> MagicMock:
     """Return a fake PathReader that satisfies read_snapshot()."""
@@ -124,6 +125,7 @@ def _measure_backup_ms(tmp_path: Path, repeat: int = 10) -> float:
 # Standalone runner
 # ---------------------------------------------------------------------------
 
+
 def _run_benchmarks() -> None:
     import tempfile
 
@@ -152,8 +154,8 @@ def _run_benchmarks() -> None:
 
 # Thresholds are intentionally generous to tolerate slow CI machines and
 # cold filesystem caches.  Lower them if the baseline improves significantly.
-_IMPORT_THRESHOLD_MS = 3000   # fresh subprocess import must finish under 3 s
-_BACKUP_THRESHOLD_MS = 50     # in-process backup (skip path) under 50 ms
+_IMPORT_THRESHOLD_MS = 3000  # fresh subprocess import must finish under 3 s
+_BACKUP_THRESHOLD_MS = 50  # in-process backup (skip path) under 50 ms
 
 
 @pytest.mark.slow

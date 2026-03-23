@@ -1,4 +1,5 @@
 """Tests for shell-startup command: injection, removal, dry-run, fish support."""
+
 from __future__ import annotations
 
 import os
@@ -17,10 +18,10 @@ from pathkeeper.cli import (
     _shell_startup_rc_for,
 )
 
-
 # ---------------------------------------------------------------------------
 # Unit tests for helper functions
 # ---------------------------------------------------------------------------
+
 
 def test_shell_startup_backup_line_bash() -> None:
     line = _shell_startup_backup_line("bash")
@@ -97,6 +98,7 @@ def test_shell_startup_rc_for_pwsh_alias() -> None:
 
 def test_shell_startup_rc_for_unknown_shell_raises() -> None:
     from pathkeeper.errors import PathkeeperError
+
     with pytest.raises(PathkeeperError, match="Unknown shell"):
         _shell_startup_rc_for("csh")
 
@@ -128,7 +130,9 @@ def test_detect_shell_rc_fish(monkeypatch: MonkeyPatch) -> None:
     assert "config.fish" in rc_file
 
 
-def test_detect_shell_rc_no_shell_env_falls_back_to_powershell(monkeypatch: MonkeyPatch) -> None:
+def test_detect_shell_rc_no_shell_env_falls_back_to_powershell(
+    monkeypatch: MonkeyPatch,
+) -> None:
     monkeypatch.delenv("SHELL", raising=False)
     result = _detect_shell_rc()
     assert result is not None
@@ -139,6 +143,7 @@ def test_detect_shell_rc_no_shell_env_falls_back_to_powershell(monkeypatch: Monk
 # ---------------------------------------------------------------------------
 # CLI integration tests
 # ---------------------------------------------------------------------------
+
 
 def test_shell_startup_bash_injects_line(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
@@ -175,7 +180,9 @@ def test_shell_startup_powershell_injects_block_comment(
 ) -> None:
     rc_file = tmp_path / "Microsoft.PowerShell_profile.ps1"
     rc_file.write_text("# existing profile\n", encoding="utf-8")
-    exit_code = cli.run(["shell-startup", "--shell", "powershell", "--rc-file", str(rc_file)])
+    exit_code = cli.run(
+        ["shell-startup", "--shell", "powershell", "--rc-file", str(rc_file)]
+    )
     assert exit_code == 0
     content = rc_file.read_text(encoding="utf-8")
     assert _SHELL_STARTUP_MARKER in content
@@ -206,7 +213,9 @@ def test_shell_startup_remove_cleans_up_line(
     rc_file.write_text("export PATH=$PATH:/usr/bin\n", encoding="utf-8")
     cli.run(["shell-startup", "--shell", "bash", "--rc-file", str(rc_file)])
     capsys.readouterr()
-    exit_code = cli.run(["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--remove"])
+    exit_code = cli.run(
+        ["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--remove"]
+    )
     assert exit_code == 0
     content = rc_file.read_text(encoding="utf-8")
     assert _SHELL_STARTUP_MARKER not in content
@@ -219,7 +228,9 @@ def test_shell_startup_remove_when_not_present_is_noop(
 ) -> None:
     rc_file = tmp_path / ".bashrc"
     rc_file.write_text("export PATH=$PATH:/usr/bin\n", encoding="utf-8")
-    exit_code = cli.run(["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--remove"])
+    exit_code = cli.run(
+        ["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--remove"]
+    )
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "Nothing to remove" in output
@@ -232,7 +243,9 @@ def test_shell_startup_dry_run_does_not_write(
 ) -> None:
     rc_file = tmp_path / ".bashrc"
     rc_file.write_text("", encoding="utf-8")
-    exit_code = cli.run(["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--dry-run"])
+    exit_code = cli.run(
+        ["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--dry-run"]
+    )
     assert exit_code == 0
     content = rc_file.read_text(encoding="utf-8")
     assert _SHELL_STARTUP_MARKER not in content
@@ -258,7 +271,17 @@ def test_shell_startup_dry_run_remove_does_not_write(
     rc_file = tmp_path / ".bashrc"
     line = _shell_startup_backup_line("bash")
     rc_file.write_text(f"{line}\n", encoding="utf-8")
-    exit_code = cli.run(["shell-startup", "--shell", "bash", "--rc-file", str(rc_file), "--remove", "--dry-run"])
+    exit_code = cli.run(
+        [
+            "shell-startup",
+            "--shell",
+            "bash",
+            "--rc-file",
+            str(rc_file),
+            "--remove",
+            "--dry-run",
+        ]
+    )
     assert exit_code == 0
     # Marker still present because dry-run
     assert _SHELL_STARTUP_MARKER in rc_file.read_text(encoding="utf-8")

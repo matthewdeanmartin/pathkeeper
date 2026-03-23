@@ -39,11 +39,15 @@ class PathSnapshot:
             return f"{self.system_path_raw};{self.user_path_raw}"
         return self.system_path_raw or self.user_path_raw
 
-    def with_scope_entries(self, scope: Scope, entries: list[str], raw: str) -> "PathSnapshot":
+    def with_scope_entries(
+        self, scope: Scope, entries: list[str], raw: str
+    ) -> "PathSnapshot":
         if scope is Scope.SYSTEM:
             return PathSnapshot(entries, list(self.user_path), raw, self.user_path_raw)
         if scope is Scope.USER:
-            return PathSnapshot(list(self.system_path), entries, self.system_path_raw, raw)
+            return PathSnapshot(
+                list(self.system_path), entries, self.system_path_raw, raw
+            )
         raise ValueError("Cannot replace all scopes at once")
 
 
@@ -169,4 +173,3 @@ class EditSessionState:
     original: list[str]
     current: list[str]
     history: list[list[str]] = field(default_factory=list)
-

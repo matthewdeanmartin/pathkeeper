@@ -5,7 +5,13 @@ import os
 from pathlib import Path
 
 from pathkeeper.core.diagnostics import expand_entry, has_unexpanded_variables
-from pathkeeper.models import BackupRecord, PathSnapshot, Scope, TruncatedPathCandidate, TruncatedPathRepair
+from pathkeeper.models import (
+    BackupRecord,
+    PathSnapshot,
+    Scope,
+    TruncatedPathCandidate,
+    TruncatedPathRepair,
+)
 
 
 def _normalized_parts(value: str, os_name: str) -> list[str]:
@@ -40,7 +46,11 @@ def _backup_candidates(
         for entry in entries:
             candidate_path = Path(expand_entry(entry))
             candidate_text = str(candidate_path)
-            canonical = candidate_text.casefold() if os_name in {"windows", "darwin"} else candidate_text
+            canonical = (
+                candidate_text.casefold()
+                if os_name in {"windows", "darwin"}
+                else candidate_text
+            )
             if canonical in seen or not candidate_path.is_dir():
                 continue
             if not _path_matches_suffix(candidate_path, target_parts, os_name):
@@ -68,18 +78,30 @@ def _filesystem_candidates(
     for root in search_roots:
         if not root.exists() or not root.is_dir():
             continue
-        for current_dir, _dirnames, _filenames in os.walk(root, onerror=lambda _error: None):
+        for current_dir, _dirnames, _filenames in os.walk(
+            root, onerror=lambda _error: None
+        ):
             current_path = Path(current_dir)
-            current_name = current_path.name.casefold() if os_name in {"windows", "darwin"} else current_path.name
+            current_name = (
+                current_path.name.casefold()
+                if os_name in {"windows", "darwin"}
+                else current_path.name
+            )
             if current_name != target_leaf:
                 continue
             if not _path_matches_suffix(current_path, target_parts, os_name):
                 continue
             candidate_text = str(current_path)
-            canonical = candidate_text.casefold() if os_name in {"windows", "darwin"} else candidate_text
+            canonical = (
+                candidate_text.casefold()
+                if os_name in {"windows", "darwin"}
+                else candidate_text
+            )
             if canonical in existing:
                 continue
-            candidates.append(TruncatedPathCandidate(path=candidate_text, source=f"disk {root}"))
+            candidates.append(
+                TruncatedPathCandidate(path=candidate_text, source=f"disk {root}")
+            )
             existing.add(canonical)
             if len(candidates) >= limit:
                 return candidates
@@ -89,7 +111,14 @@ def _filesystem_candidates(
 def default_search_roots(os_name: str) -> list[Path]:
     roots: list[Path] = []
     if os_name == "windows":
-        for variable in ("LOCALAPPDATA", "APPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "USERPROFILE", "SystemDrive"):
+        for variable in (
+            "LOCALAPPDATA",
+            "APPDATA",
+            "PROGRAMFILES",
+            "PROGRAMFILES(X86)",
+            "USERPROFILE",
+            "SystemDrive",
+        ):
             value = os.environ.get(variable)
             if value:
                 roots.append(Path(value))
@@ -102,7 +131,9 @@ def default_search_roots(os_name: str) -> list[Path]:
     unique: list[Path] = []
     seen: set[str] = set()
     for root in roots:
-        canonical = str(root).casefold() if os_name in {"windows", "darwin"} else str(root)
+        canonical = (
+            str(root).casefold() if os_name in {"windows", "darwin"} else str(root)
+        )
         if canonical in seen:
             continue
         seen.add(canonical)
@@ -136,9 +167,15 @@ def _find_scope_repairs(
         target_parts = _normalized_parts(entry, os_name)
         if len(target_parts) < 2:
             continue
-        backup_candidates = _backup_candidates(records=records, scope=scope, target_parts=target_parts, os_name=os_name)
+        backup_candidates = _backup_candidates(
+            records=records, scope=scope, target_parts=target_parts, os_name=os_name
+        )
         seen = {
-            candidate.path.casefold() if os_name in {"windows", "darwin"} else candidate.path
+            (
+                candidate.path.casefold()
+                if os_name in {"windows", "darwin"}
+                else candidate.path
+            )
             for candidate in backup_candidates
         }
         disk_candidates: list[TruncatedPathCandidate] = []
@@ -174,7 +211,11 @@ def find_truncated_repairs(
     search_roots: list[Path] | None = None,
     max_candidates: int = 5,
 ) -> list[TruncatedPathRepair]:
-    roots = list(search_roots) if search_roots is not None else default_search_roots(os_name)
+    roots = (
+        list(search_roots)
+        if search_roots is not None
+        else default_search_roots(os_name)
+    )
     repairs: list[TruncatedPathRepair] = []
     display_start = 1
     if scope in {Scope.SYSTEM, Scope.ALL}:

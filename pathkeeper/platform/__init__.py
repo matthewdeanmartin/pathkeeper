@@ -16,11 +16,12 @@ def normalized_os_name() -> str:
     return "linux"
 
 
-def get_platform_adapter(config: AppConfig) -> WindowsPlatform | LinuxPlatform | MacOSPlatform:
+def get_platform_adapter(
+    config: AppConfig,
+) -> WindowsPlatform | LinuxPlatform | MacOSPlatform:
     os_name = normalized_os_name()
     if os_name == "windows":
         return WindowsPlatform()
     if os_name == "darwin":
         return MacOSPlatform(rc_file_override=config.shell.rc_file or None)
     return LinuxPlatform(rc_file_override=config.shell.rc_file or None)
-

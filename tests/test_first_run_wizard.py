@@ -1,4 +1,5 @@
 """Tests for the first-run onboarding wizard."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,17 +36,20 @@ def _patch_wizard_env(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
 
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")
 
     from pathkeeper import config as _config_mod
+
     monkeypatch.setattr(_config_mod, "app_home", lambda: app_dir)
 
     # Patch the imported name in cli's own namespace too (used in run() and wizard)
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr("pathkeeper.config.app_home", lambda: app_dir)
     return app_dir
 
@@ -58,12 +62,14 @@ def test_wizard_triggers_when_app_home_absent(
 
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr(_pkconfig, "app_home", lambda: app_dir)
     # Wizard asks: create backup? and install hook?  say no to both to keep test simple
     responses = iter(["n", "n"])
@@ -83,10 +89,12 @@ def test_wizard_does_not_trigger_when_app_home_exists(
     app_dir.mkdir()
 
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr(_pkconfig, "app_home", lambda: app_dir)
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
@@ -107,10 +115,12 @@ def test_wizard_shows_path_health_summary(
 ) -> None:
     app_dir = tmp_path / ".pathkeeper"
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr(_pkconfig, "app_home", lambda: app_dir)
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
@@ -131,10 +141,12 @@ def test_wizard_creates_backup_when_user_accepts(
     app_dir = tmp_path / ".pathkeeper"
     backup_dir = app_dir / "backups"
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr(_pkconfig, "app_home", lambda: app_dir)
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
@@ -157,10 +169,12 @@ def test_wizard_skips_backup_when_user_declines(
     app_dir = tmp_path / ".pathkeeper"
     backup_dir = app_dir / "backups"
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr(_pkconfig, "app_home", lambda: app_dir)
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
@@ -180,10 +194,12 @@ def test_wizard_setup_complete_message(
 ) -> None:
     app_dir = tmp_path / ".pathkeeper"
     import pathkeeper.config as _pkconfig
+
     monkeypatch.setattr(_pkconfig, "app_home", lambda: app_dir)
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(
-        cli, "get_platform_adapter",
+        cli,
+        "get_platform_adapter",
         lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")

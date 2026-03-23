@@ -7,7 +7,6 @@ from pathlib import Path
 
 from importlib import resources
 
-
 APP_DIR_NAME = ".pathkeeper"
 BACKUP_DIR_NAME = "backups"
 CATALOG_FILE_NAME = "known_tools.toml"
@@ -81,7 +80,10 @@ def ensure_app_state() -> None:
         write_default_config(config_path())
     if not catalog_path().exists():
         source = resources.files("pathkeeper.catalog").joinpath(CATALOG_FILE_NAME)
-        with source.open("rb") as source_handle, catalog_path().open("wb") as target_handle:
+        with (
+            source.open("rb") as source_handle,
+            catalog_path().open("wb") as target_handle,
+        ):
             shutil.copyfileobj(source_handle, target_handle)
 
 
@@ -131,8 +133,11 @@ def load_config() -> AppConfig:
         general=GeneralConfig(**{**asdict(default.general), **raw.get("general", {})}),
         display=DisplayConfig(**{**asdict(default.display), **raw.get("display", {})}),
         restore=RestoreConfig(**{**asdict(default.restore), **raw.get("restore", {})}),
-        populate=PopulateConfig(**{**asdict(default.populate), **raw.get("populate", {})}),
-        schedule=ScheduleConfig(**{**asdict(default.schedule), **raw.get("schedule", {})}),
+        populate=PopulateConfig(
+            **{**asdict(default.populate), **raw.get("populate", {})}
+        ),
+        schedule=ScheduleConfig(
+            **{**asdict(default.schedule), **raw.get("schedule", {})}
+        ),
         shell=ShellConfig(**{**asdict(default.shell), **raw.get("shell", {})}),
     )
-

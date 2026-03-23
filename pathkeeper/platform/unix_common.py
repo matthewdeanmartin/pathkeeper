@@ -7,7 +7,6 @@ from typing import Mapping
 from pathkeeper.core.diagnostics import join_path, split_path
 from pathkeeper.errors import PermissionDeniedError
 
-
 MANAGED_MARKER = "# --- pathkeeper managed ---"
 
 
@@ -24,7 +23,11 @@ class UnixPlatformBase:
     ) -> None:
         self._environ = dict(environ or os.environ)
         self._system_path_file = system_path_file or Path(self.system_path_file_name)
-        self._rc_file = Path(rc_file_override).expanduser() if rc_file_override else self._detect_rc_file()
+        self._rc_file = (
+            Path(rc_file_override).expanduser()
+            if rc_file_override
+            else self._detect_rc_file()
+        )
 
     def _detect_rc_file(self) -> Path:
         shell = self._environ.get("SHELL", "")
@@ -55,7 +58,9 @@ class UnixPlatformBase:
 
     def write_user_path(self, entries: list[str]) -> None:
         self._rc_file.parent.mkdir(parents=True, exist_ok=True)
-        content = self._rc_file.read_text(encoding="utf-8") if self._rc_file.exists() else ""
+        content = (
+            self._rc_file.read_text(encoding="utf-8") if self._rc_file.exists() else ""
+        )
         block = self._render_managed_block(entries)
         if MANAGED_MARKER in content:
             before, _, tail = content.partition(MANAGED_MARKER)
@@ -98,4 +103,3 @@ class UnixPlatformBase:
                 payload = stripped.removeprefix("set -gx PATH ").strip()
                 return [part.strip('"') for part in payload.split()]
         return []
-

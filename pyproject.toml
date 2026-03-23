@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pytable-formatter>=0.1.1",
-        "argcomplete>=3.3.0",
+    "argcomplete>=3.3.0",
     "rich-argparse>=1.5.0",
     "totalhelp>=0.1.0",
 ]
@@ -28,10 +28,10 @@ pathkeeper-gui = "pathkeeper.gui.app:launch_gui"
 
 [dependency-groups]
 dev = [
-  "mypy>=1.18.2",
-  "pytest>=8.4.2",
-  "tox>=4.0",
-  "tox-uv>=1.0",
+    "mypy>=1.18.2",
+    "pytest>=8.4.2",
+    "tox>=4.0",
+    "tox-uv>=1.0",
 ]
 
 [tool.pytest.ini_options]

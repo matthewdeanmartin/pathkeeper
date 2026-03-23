@@ -25,4 +25,3 @@ class MacOSPlatform(UnixPlatformBase):
             self._system_path_file.write_text(content, encoding="utf-8")
         except PermissionError as error:
             raise PermissionDeniedError(str(error)) from error
-

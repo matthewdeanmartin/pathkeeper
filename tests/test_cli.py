@@ -71,7 +71,9 @@ def _write_backup(path: Path, *, timestamp: str, tag: str, note: str = "") -> No
     path.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
 
 
-def test_doctor_json_output(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+def test_doctor_json_output(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/missing", "/usr/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
@@ -140,7 +142,10 @@ def test_backup_command_skips_duplicate_content_without_force(
     exit_code = cli.main(["backup", "--quiet"])
     error_output = capsys.readouterr().err
     assert exit_code == 0
-    assert "WARNING: Skipping backup because the current PATH matches the latest saved backup." in error_output
+    assert (
+        "WARNING: Skipping backup because the current PATH matches the latest saved backup."
+        in error_output
+    )
 
 
 def test_backup_dry_run_reports_duplicate_skip(
@@ -164,7 +169,9 @@ def test_dedupe_all_skips_unchanged_system_scope(
 ) -> None:
     user_bin = tmp_path / "user-bin"
     user_bin.mkdir()
-    adapter = GuardedSystemWriteAdapter(system=["C:\\Windows\\System32"], user=[str(user_bin), str(user_bin)])
+    adapter = GuardedSystemWriteAdapter(
+        system=["C:\\Windows\\System32"], user=[str(user_bin), str(user_bin)]
+    )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
@@ -181,7 +188,9 @@ def test_dedupe_all_reports_permission_error_for_changed_system_scope(
 ) -> None:
     system_bin = tmp_path / "system-bin"
     system_bin.mkdir()
-    adapter = DenyingSystemWriteAdapter(system=[str(system_bin), str(system_bin)], user=[])
+    adapter = DenyingSystemWriteAdapter(
+        system=[str(system_bin), str(system_bin)], user=[]
+    )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
@@ -196,12 +205,19 @@ def test_dedupe_all_preflights_system_scope_before_backup_or_prompt(
 ) -> None:
     system_bin = tmp_path / "system-bin"
     system_bin.mkdir()
-    adapter = NonWritableSystemAdapter(system=[str(system_bin), str(system_bin)], user=[])
+    adapter = NonWritableSystemAdapter(
+        system=[str(system_bin), str(system_bin)], user=[]
+    )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
-    monkeypatch.setattr("builtins.input", lambda _prompt="": (_ for _ in ()).throw(AssertionError("input should not be called")))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda _prompt="": (_ for _ in ()).throw(
+            AssertionError("input should not be called")
+        ),
+    )
     exit_code = cli.main(["dedupe", "--scope", "all"])
     assert exit_code == PermissionDeniedError.exit_code
     assert not (tmp_path / "backups").exists()
@@ -211,7 +227,11 @@ def test_dedupe_all_preflights_system_scope_before_backup_or_prompt(
 def test_backups_list_prints_available_backups(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
-    _write_backup(tmp_path / "2025-03-01T10-00-00_manual.json", timestamp="2025-03-01T10:00:00Z", tag="manual")
+    _write_backup(
+        tmp_path / "2025-03-01T10-00-00_manual.json",
+        timestamp="2025-03-01T10:00:00Z",
+        tag="manual",
+    )
     _write_backup(
         tmp_path / "2025-03-02T11-00-00_pre-dedupe.json",
         timestamp="2025-03-02T11:00:00Z",
@@ -231,8 +251,14 @@ def test_backups_list_prints_available_backups(
     assert "Before dedupe" in output
 
 
-def test_backups_show_defaults_to_latest_backup(monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]) -> None:
-    _write_backup(tmp_path / "2025-03-01T10-00-00_manual.json", timestamp="2025-03-01T10:00:00Z", tag="manual")
+def test_backups_show_defaults_to_latest_backup(
+    monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    _write_backup(
+        tmp_path / "2025-03-01T10-00-00_manual.json",
+        timestamp="2025-03-01T10:00:00Z",
+        tag="manual",
+    )
     _write_backup(
         tmp_path / "2025-03-02T11-00-00_pre-dedupe.json",
         timestamp="2025-03-02T11:00:00Z",
@@ -254,9 +280,19 @@ def test_backups_show_defaults_to_latest_backup(monkeypatch: MonkeyPatch, tmp_pa
     assert "User PATH:" in output
 
 
-def test_backups_show_accepts_recent_index(monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]) -> None:
-    _write_backup(tmp_path / "2025-03-01T10-00-00_manual.json", timestamp="2025-03-01T10:00:00Z", tag="manual")
-    _write_backup(tmp_path / "2025-03-02T11-00-00_pre-dedupe.json", timestamp="2025-03-02T11:00:00Z", tag="pre-dedupe")
+def test_backups_show_accepts_recent_index(
+    monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    _write_backup(
+        tmp_path / "2025-03-01T10-00-00_manual.json",
+        timestamp="2025-03-01T10:00:00Z",
+        tag="manual",
+    )
+    _write_backup(
+        tmp_path / "2025-03-02T11-00-00_pre-dedupe.json",
+        timestamp="2025-03-02T11:00:00Z",
+        tag="pre-dedupe",
+    )
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     exit_code = cli.run(["backups", "show", "2"])
     output = capsys.readouterr().out
@@ -271,7 +307,11 @@ def test_interactive_menu_includes_backup_browser(
     good_dir.mkdir()
     monkeypatch.setattr(cli, "list_backups", lambda _path: [])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: StubAdapter(system=[str(good_dir)], user=["/missing"]))
+    monkeypatch.setattr(
+        cli,
+        "get_platform_adapter",
+        lambda _config: StubAdapter(system=[str(good_dir)], user=["/missing"]),
+    )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: Path("C:\\backups"))
     monkeypatch.setattr("builtins.input", lambda _prompt="": "q")
@@ -331,7 +371,9 @@ def test_interactive_cancel_returns_to_menu(
 ) -> None:
     user_bin = tmp_path / "user-bin"
     user_bin.mkdir()
-    adapter = StubAdapter(system=["C:\\Windows\\System32"], user=[str(user_bin), str(user_bin)])
+    adapter = StubAdapter(
+        system=["C:\\Windows\\System32"], user=[str(user_bin), str(user_bin)]
+    )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
     monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
@@ -375,7 +417,17 @@ def test_interactive_dedupe_offers_user_scope_fallback_on_windows_permission_err
 def test_repair_truncated_applies_single_backup_candidate(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
-    full_dir = tmp_path / "Users" / "matth" / "AppData" / "Local" / "Programs" / "Python" / "Python314" / "Scripts"
+    full_dir = (
+        tmp_path
+        / "Users"
+        / "matth"
+        / "AppData"
+        / "Local"
+        / "Programs"
+        / "Python"
+        / "Python314"
+        / "Scripts"
+    )
     full_dir.mkdir(parents=True)
     adapter = StubAdapter(
         system=[],
@@ -409,9 +461,17 @@ def test_repair_truncated_applies_single_backup_candidate(
     assert adapter.read_user_path() == [str(full_dir)]
 
 
-def test_schedule_status_hides_low_level_disabled_detail(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+def test_schedule_status_hides_low_level_disabled_detail(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
-    monkeypatch.setattr(_schedule_mod, "schedule_status", lambda _os_name: ScheduleStatus(False, "ERROR: The system cannot find the file specified."))
+    monkeypatch.setattr(
+        _schedule_mod,
+        "schedule_status",
+        lambda _os_name: ScheduleStatus(
+            False, "ERROR: The system cannot find the file specified."
+        ),
+    )
     exit_code = cli.run(["schedule", "status"])
     output = capsys.readouterr().out
     assert exit_code == 0
@@ -420,15 +480,22 @@ def test_schedule_status_hides_low_level_disabled_detail(monkeypatch: MonkeyPatc
     assert "cannot find the file" not in output.lower()
 
 
-def test_schedule_install_dry_run_reports_plan(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+def test_schedule_install_dry_run_reports_plan(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     exit_code = cli.run(["schedule", "install", "--trigger", "logon", "--dry-run"])
     output = capsys.readouterr().out
     assert exit_code == 0
-    assert "Dry run: would install scheduled backups for os=windows interval=startup trigger=logon." in output
+    assert (
+        "Dry run: would install scheduled backups for os=windows interval=startup trigger=logon."
+        in output
+    )
 
 
-def test_schedule_remove_dry_run_reports_plan(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+def test_schedule_remove_dry_run_reports_plan(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     exit_code = cli.run(["schedule", "remove", "--dry-run"])
     output = capsys.readouterr().out
@@ -440,7 +507,11 @@ def test_interactive_schedule_status_offers_install_when_disabled(
     monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
-    monkeypatch.setattr(_schedule_mod, "schedule_status", lambda _os_name: ScheduleStatus(False, "missing"))
+    monkeypatch.setattr(
+        _schedule_mod,
+        "schedule_status",
+        lambda _os_name: ScheduleStatus(False, "missing"),
+    )
     monkeypatch.setattr(
         _schedule_mod,
         "install_schedule",
@@ -459,7 +530,11 @@ def test_interactive_schedule_status_falls_back_to_logon_on_windows_permission_e
     monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
-    monkeypatch.setattr(_schedule_mod, "schedule_status", lambda _os_name: ScheduleStatus(False, "missing"))
+    monkeypatch.setattr(
+        _schedule_mod,
+        "schedule_status",
+        lambda _os_name: ScheduleStatus(False, "missing"),
+    )
 
     def fake_install(_os_name: str, _interval: str, *, trigger: str = "startup") -> str:
         if trigger == "startup":
@@ -480,7 +555,11 @@ def test_interactive_schedule_status_explains_when_logon_fallback_is_also_denied
     monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
-    monkeypatch.setattr(_schedule_mod, "schedule_status", lambda _os_name: ScheduleStatus(False, "missing"))
+    monkeypatch.setattr(
+        _schedule_mod,
+        "schedule_status",
+        lambda _os_name: ScheduleStatus(False, "missing"),
+    )
 
     def fake_install(_os_name: str, _interval: str, *, trigger: str = "startup") -> str:
         raise PermissionDeniedError("Access is denied.")
@@ -498,7 +577,9 @@ def test_interactive_schedule_status_explains_when_logon_fallback_is_also_denied
     assert error_output == ""
 
 
-def test_schedule_install_permission_error_is_cleaned(monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]) -> None:
+def test_schedule_install_permission_error_is_cleaned(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
 
     def fake_install(_os_name: str, _interval: str, *, trigger: str = "startup") -> str:
@@ -509,4 +590,3 @@ def test_schedule_install_permission_error_is_cleaned(monkeypatch: MonkeyPatch, 
     error_output = capsys.readouterr().err
     assert exit_code == PermissionDeniedError.exit_code
     assert "ERROR: Access is denied." in error_output
-

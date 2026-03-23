@@ -40,7 +40,10 @@ class EditSession:
 
     def swap(self, left: int, right: int) -> None:
         self._checkpoint()
-        self._state.current[left], self._state.current[right] = self._state.current[right], self._state.current[left]
+        self._state.current[left], self._state.current[right] = (
+            self._state.current[right],
+            self._state.current[left],
+        )
 
     def undo(self) -> bool:
         if not self._state.history:
@@ -54,4 +57,3 @@ class EditSession:
 
     def diff(self) -> PathDiff:
         return compute_diff(self._state.original, self._state.current, self._os_name)
-

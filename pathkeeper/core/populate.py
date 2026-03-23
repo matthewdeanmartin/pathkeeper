@@ -102,7 +102,9 @@ def _candidate_version(tool_name: str, candidate: str) -> tuple[int, ...] | None
 
 
 def _prefer_latest_versions(matches: list[PopulateMatch]) -> list[PopulateMatch]:
-    grouped: dict[tuple[str, str], list[tuple[tuple[int, ...], PopulateMatch]]] = defaultdict(list)
+    grouped: dict[tuple[str, str], list[tuple[tuple[int, ...], PopulateMatch]]] = (
+        defaultdict(list)
+    )
     unversioned: list[PopulateMatch] = []
     for match in matches:
         version = _candidate_version(match.name, match.path)
@@ -113,8 +115,12 @@ def _prefer_latest_versions(matches: list[PopulateMatch]) -> list[PopulateMatch]
     selected = list(unversioned)
     for versioned_matches in grouped.values():
         latest = max(version for version, _match in versioned_matches)
-        selected.extend(match for version, match in versioned_matches if version == latest)
-    return sorted(selected, key=lambda item: (item.category, item.name, item.path.casefold()))
+        selected.extend(
+            match for version, match in versioned_matches if version == latest
+        )
+    return sorted(
+        selected, key=lambda item: (item.category, item.name, item.path.casefold())
+    )
 
 
 def discover_tools(
@@ -138,7 +144,9 @@ def discover_tools(
                 canonical = canonicalize_entry(candidate, os_name)
                 if canonical in existing or canonical in matches:
                     continue
-                matches[canonical] = PopulateMatch(name=tool.name, category=tool.category, path=candidate)
+                matches[canonical] = PopulateMatch(
+                    name=tool.name, category=tool.category, path=candidate
+                )
     return _prefer_latest_versions(list(matches.values()))
 
 
@@ -147,4 +155,3 @@ def group_matches(matches: list[PopulateMatch]) -> dict[str, list[PopulateMatch]
     for match in matches:
         grouped[match.category].append(match)
     return dict(sorted(grouped.items(), key=lambda item: item[0].casefold()))
-
