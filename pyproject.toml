@@ -3,6 +3,9 @@ name = "pathkeeper"
 version = "0.1.0"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
+authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
+keywords = ["path"]
+license = "MIT"
 requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 1 - Planning",
@@ -18,6 +21,15 @@ dependencies = [
     "rich-argparse>=1.5.0",
     "totalhelp>=0.1.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/matthewdeanmartin/pathkeeper"
+Documentation = "https://pathkeeper.readthedocs.io/en/latest/"
+Changelog = "https://github.com/matthewdeanmartin/pathkeeper/blob/main/CHANGELOG.md"
+
+homepage = "https://github.com/matthewdeanmartin/pathkeeper"
+issues = "https://github.com/matthewdeanmartin/pathkeeper/issues/"
+
 
 [build-system]
 requires = ["hatchling>=1.27.0"]
