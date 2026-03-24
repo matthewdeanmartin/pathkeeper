@@ -22,7 +22,7 @@ jobs:
       - name: Build package
         run: uv build
       - name: Upload artifact
-        uses: actions/upload-artifact@c6a366c94c3e0affe28c06c8df20a878f24da3cf  # v3.2.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7
         with:
           name: packages
           path: dist/
