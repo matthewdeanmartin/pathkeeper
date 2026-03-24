@@ -1,6 +1,6 @@
 [project]
 name = "pathkeeper"
-version = "0.1.0"
+version = "0.1.1"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]

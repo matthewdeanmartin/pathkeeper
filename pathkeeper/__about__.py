@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 __title__ = "pathkeeper"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __description__ = "PATH backup, restore, and repair tool"
 __readme__ = "README.md"
 __credits__ = [{"name": "Matthew Martin", "email": "matthewdeanmartin@gmail.com"}]
