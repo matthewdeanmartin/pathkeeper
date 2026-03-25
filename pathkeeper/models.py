@@ -22,6 +22,8 @@ class PathSnapshot:
     user_path: list[str]
     system_path_raw: str
     user_path_raw: str
+    system_env_vars: dict[str, str] = field(default_factory=dict)
+    user_env_vars: dict[str, str] = field(default_factory=dict)
 
     def entries_for_scope(self, scope: Scope) -> list[str]:
         if scope is Scope.SYSTEM:
@@ -43,10 +45,54 @@ class PathSnapshot:
         self, scope: Scope, entries: list[str], raw: str
     ) -> PathSnapshot:
         if scope is Scope.SYSTEM:
-            return PathSnapshot(entries, list(self.user_path), raw, self.user_path_raw)
+            return PathSnapshot(
+                entries,
+                list(self.user_path),
+                raw,
+                self.user_path_raw,
+                dict(self.system_env_vars),
+                dict(self.user_env_vars),
+            )
         if scope is Scope.USER:
             return PathSnapshot(
-                list(self.system_path), entries, self.system_path_raw, raw
+                list(self.system_path),
+                entries,
+                self.system_path_raw,
+                raw,
+                dict(self.system_env_vars),
+                dict(self.user_env_vars),
+            )
+        raise ValueError("Cannot replace all scopes at once")
+
+    def env_vars_for_scope(self, scope: Scope) -> dict[str, str]:
+        if scope is Scope.SYSTEM:
+            return dict(self.system_env_vars)
+        if scope is Scope.USER:
+            return dict(self.user_env_vars)
+        combined = dict(self.system_env_vars)
+        combined.update(self.user_env_vars)
+        return combined
+
+    def with_scope_env_vars(
+        self, scope: Scope, env_vars: dict[str, str]
+    ) -> PathSnapshot:
+        if scope is Scope.SYSTEM:
+            return PathSnapshot(
+                list(self.system_path),
+                list(self.user_path),
+                self.system_path_raw,
+                self.user_path_raw,
+                dict(env_vars),
+                dict(self.user_env_vars),
+            )
+        if scope is Scope.USER:
+            return PathSnapshot(
+                list(self.system_path),
+                list(self.user_path),
+                self.system_path_raw,
+                self.user_path_raw,
+                dict(self.system_env_vars),
+                dict(env_vars),
             )
         raise ValueError("Cannot replace all scopes at once")
 
@@ -63,6 +109,8 @@ class BackupRecord:
     user_path: list[str]
     system_path_raw: str
     user_path_raw: str
+    system_env_vars: dict[str, str] = field(default_factory=dict)
+    user_env_vars: dict[str, str] = field(default_factory=dict)
     source_file: Path | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -77,6 +125,8 @@ class BackupRecord:
             "user_path": self.user_path,
             "system_path_raw": self.system_path_raw,
             "user_path_raw": self.user_path_raw,
+            "system_env_vars": dict(self.system_env_vars),
+            "user_env_vars": dict(self.user_env_vars),
         }
 
     @property
@@ -86,6 +136,8 @@ class BackupRecord:
             user_path=list(self.user_path),
             system_path_raw=self.system_path_raw,
             user_path_raw=self.user_path_raw,
+            system_env_vars=dict(self.system_env_vars),
+            user_env_vars=dict(self.user_env_vars),
         )
 
 

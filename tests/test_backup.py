@@ -8,7 +8,12 @@ from pathlib import Path
 import pytest
 
 from pathkeeper.config import AppConfig, GeneralConfig
-from pathkeeper.core.backup import create_backup, list_backups, prune_backups
+from pathkeeper.core.backup import (
+    create_backup,
+    list_backups,
+    load_backup,
+    prune_backups,
+)
 from pathkeeper.models import BackupRecord, PathSnapshot
 
 
@@ -112,3 +117,28 @@ def test_prune_backups_honors_manual_and_auto_limits(tmp_path: Path) -> None:
         "2025-03-04T10-00-00_auto.json",
         "2025-03-02T10-00-00_manual.json",
     ]
+
+
+def test_backup_round_trips_helper_environment_variables(tmp_path: Path) -> None:
+    path = tmp_path / "2025-03-05T10-00-00_manual.json"
+    record = BackupRecord(
+        version=1,
+        timestamp=datetime.fromisoformat("2025-03-05T10:00:00+00:00"),
+        hostname="host",
+        os_name="windows",
+        tag="manual",
+        note="",
+        system_path=[],
+        user_path=["%PK_USER_PATHS_1%"],
+        system_path_raw="",
+        user_path_raw="%PK_USER_PATHS_1%",
+        user_env_vars={"PK_USER_PATHS_1": r"C:\Tools\Alpha\bin;C:\Tools\Beta\bin"},
+    )
+    path.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
+
+    loaded = load_backup(path)
+
+    assert loaded.user_env_vars == {
+        "PK_USER_PATHS_1": r"C:\Tools\Alpha\bin;C:\Tools\Beta\bin"
+    }
+    assert loaded.snapshot.user_env_vars == loaded.user_env_vars

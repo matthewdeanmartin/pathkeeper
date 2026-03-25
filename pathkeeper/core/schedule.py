@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 import shutil
 import subprocess  # nosec B404
 import sys
@@ -7,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pathkeeper.errors import PathkeeperError, PermissionDeniedError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,7 @@ def _clean_windows_task_error(text: str) -> str:
 
 
 def schedule_status(os_name: str) -> ScheduleStatus:
+    logger.info("Checking schedule status for os=%s", os_name)
     if os_name == "windows":
         result = _run(["schtasks", "/Query", "/TN", "pathkeeper"])
         return ScheduleStatus(
@@ -52,35 +57,66 @@ def schedule_status(os_name: str) -> ScheduleStatus:
 
 
 def install_schedule(os_name: str, interval: str, *, trigger: str = "startup") -> str:
+    logger.info(
+        "Installing schedule for os=%s interval=%s trigger=%s",
+        os_name,
+        interval,
+        trigger,
+    )
     if os_name == "windows":
         schedule = "ONSTART" if trigger == "startup" else "ONLOGON"
         if interval != "startup" and trigger == "startup":
             schedule = "MINUTE"
-        command = [
-            "schtasks",
-            "/Create",
-            "/F",
-            "/TN",
-            "pathkeeper",
-            "/TR",
-            _command_line(),
-            "/SC",
-            schedule,
-        ]
-        if interval != "startup" and schedule == "MINUTE":
-            command.extend(["/MO", interval.removesuffix("m")])
-        result = _run(command)
+
+        if schedule == "ONLOGON":
+            # Use PowerShell to allow non-admin users to schedule logon tasks.
+            # schtasks /Create /SC ONLOGON requires administrative privileges,
+            # but Register-ScheduledTask -AtLogOn allows users to schedule
+            # tasks for their own logon.
+            user = os.environ.get("USERNAME") or os.getlogin()
+            executable = sys.executable.replace("'", "''")
+            user = user.replace("'", "''")
+            ps_script = (
+                f"$action = New-ScheduledTaskAction -Execute '{executable}' "
+                f"-Argument '-m pathkeeper backup --tag auto --quiet'; "
+                f"Register-ScheduledTask -TaskName 'pathkeeper' -Action $action "
+                f"-Trigger (New-ScheduledTaskTrigger -AtLogOn -User '{user}') -Force"
+            )
+            result = _run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script]
+            )
+        else:
+            command = [
+                "schtasks",
+                "/Create",
+                "/F",
+                "/TN",
+                "pathkeeper",
+                "/TR",
+                _command_line(),
+                "/SC",
+                schedule,
+            ]
+            if interval != "startup" and schedule == "MINUTE":
+                command.extend(["/MO", interval.removesuffix("m")])
+            result = _run(command)
+
         if result.returncode != 0:
             detail = _clean_windows_task_error(
                 result.stderr
                 or result.stdout
                 or "Failed to install Windows scheduled task."
             )
+            logger.warning(
+                "Windows schedule install failed for trigger=%s: %s", trigger, detail
+            )
             if "access is denied" in detail.lower():
                 raise PermissionDeniedError(detail)
             raise PathkeeperError(detail)
         if trigger == "logon":
+            logger.info("Installed Windows scheduled task for user logon.")
             return "Installed Windows scheduled task for user logon."
+        logger.info("Installed Windows scheduled task.")
         return "Installed Windows scheduled task."
     if os_name == "darwin":
         plist = Path.home() / "Library" / "LaunchAgents" / "com.pathkeeper.backup.plist"
@@ -158,6 +194,7 @@ def install_schedule(os_name: str, interval: str, *, trigger: str = "startup") -
 
 
 def remove_schedule(os_name: str) -> str:
+    logger.info("Removing schedule for os=%s", os_name)
     if os_name == "windows":
         result = _run(["schtasks", "/Delete", "/F", "/TN", "pathkeeper"])
         if result.returncode != 0:

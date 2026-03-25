@@ -96,6 +96,11 @@ pathkeeper dedupe --no-remove-invalid
 # Repair likely truncated entries (setx damage, etc.)
 pathkeeper repair-truncated --dry-run
 pathkeeper repair-truncated
+
+# Windows: shorten PATH itself by moving tail segments into helper variables
+pathkeeper split-long --dry-run
+pathkeeper split-long --force
+pathkeeper split-long --var-prefix DEV_PATHS
 ```
 
 ### Discover and add tools

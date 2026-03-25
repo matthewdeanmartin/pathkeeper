@@ -7,6 +7,7 @@ so no real PATH is read or written.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -318,6 +319,142 @@ def test_schedule_panel_creates(root: _tk.Tk) -> None:
         assert panel.winfo_exists()
 
 
+def test_split_long_panel_creates(root: _tk.Tk) -> None:
+    from pathkeeper.gui.app import SplitLongPanel, _BackgroundRunner
+
+    class _EnvAdapter:
+        def read_user_environment(self) -> dict[str, str]:
+            return {}
+
+    with patch(
+        "pathkeeper.services.get_snapshot_and_adapter",
+        return_value=(_fake_snapshot(), _EnvAdapter(), "windows"),
+    ):
+        runner = _BackgroundRunner(root)
+        status = tk.StringVar()
+        panel = SplitLongPanel(root, runner, status)
+        root.update()
+        assert panel.winfo_exists()
+
+
+def test_schedule_panel_install_falls_back_to_logon(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pathkeeper import platform as platform_mod
+    from pathkeeper.core import schedule
+    from pathkeeper.errors import PermissionDeniedError
+    from pathkeeper.gui.app import SchedulePanel
+
+    calls: list[str] = []
+
+    def fake_install(_os_name: str, _interval: str, *, trigger: str = "startup") -> str:
+        calls.append(trigger)
+        if trigger == "startup":
+            raise PermissionDeniedError("Access is denied.")
+        return "Installed Windows scheduled task for user logon."
+
+    monkeypatch.setattr(schedule, "install_schedule", fake_install)
+    monkeypatch.setattr(platform_mod, "normalized_os_name", lambda: "windows")
+
+    result = SchedulePanel._do_install()
+
+    assert calls == ["startup", "logon"]
+    assert "per-user logon task instead" in result
+    assert "Installed Windows scheduled task for user logon." in result
+
+
+def test_split_long_panel_apply_reports_completion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pathkeeper.gui.app import SplitLongPanel
+
+    snapshot = PathSnapshot(
+        system_path=[],
+        user_path=[
+            r"C:\Tools\Alpha\bin",
+            r"C:\Tools\Beta\bin",
+            r"C:\Tools\Gamma\bin",
+            r"C:\Tools\Delta\bin",
+        ],
+        system_path_raw="",
+        user_path_raw=(
+            r"C:\Tools\Alpha\bin;C:\Tools\Beta\bin;C:\Tools\Gamma\bin;C:\Tools\Delta\bin"
+        ),
+    )
+
+    class _Adapter:
+        def __init__(self) -> None:
+            self.user = list(snapshot.user_path)
+            self.user_env: dict[str, str] = {}
+            self.system_env: dict[str, str] = {}
+
+        def read_user_environment(self) -> dict[str, str]:
+            return dict(self.user_env)
+
+        def read_system_environment(self) -> dict[str, str]:
+            return dict(self.system_env)
+
+        def write_user_path(self, entries: list[str]) -> None:
+            self.user = list(entries)
+
+        def write_user_env_var(self, name: str, value: str) -> None:
+            self.user_env[name] = value
+
+        def write_system_env_var(self, name: str, value: str) -> None:
+            self.system_env[name] = value
+
+        def delete_user_env_var(self, name: str) -> None:
+            self.user_env.pop(name, None)
+
+        def delete_system_env_var(self, name: str) -> None:
+            self.system_env.pop(name, None)
+
+    adapter = _Adapter()
+    monkeypatch.setattr(
+        "pathkeeper.services.get_snapshot_and_adapter",
+        lambda: (snapshot, adapter, "windows"),
+    )
+    monkeypatch.setattr("pathkeeper.services.backup_now", lambda **_kwargs: None)
+
+    text = SplitLongPanel._do_apply("user", 40, 32, "DEV_PATHS")
+
+    assert "Split-long complete." in text
+    assert adapter.user == ["%DEV_PATHS_1%"]
+    assert set(adapter.user_env) == {"DEV_PATHS_1"}
+
+
+def test_schedule_panel_refreshes_status_after_install(root: _tk.Tk) -> None:
+    from pathkeeper.gui.app import SchedulePanel
+
+    runner = MagicMock()
+    status = tk.StringVar()
+    panel = SchedulePanel(root, runner, status)
+    runner.reset_mock()
+
+    panel._on_install_success("Installed Windows scheduled task.")
+
+    runner.run.assert_called_once_with(
+        panel._fetch_status, on_success=panel._display, on_error=panel._on_error
+    )
+    assert status.get() == "Schedule installed; refreshing status..."
+
+
+def test_launch_gui_logs_lifecycle(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from pathkeeper.gui import app as gui_app
+
+    mock_app = MagicMock()
+    monkeypatch.setattr(gui_app, "PathkeeperApp", MagicMock(return_value=mock_app))
+
+    with caplog.at_level(logging.INFO):
+        result = gui_app.launch_gui()
+
+    assert result == 0
+    assert "Launching pathkeeper GUI." in caplog.text
+    assert "Pathkeeper GUI exited." in caplog.text
+
+
 # ── app tests ─────────────────────────────────────────────────────
 
 
@@ -364,11 +501,16 @@ def test_background_runner_creates(root: _tk.Tk) -> None:
 
 def test_background_runner_run_calls_func() -> None:
     """Test that the runner invokes the function in a thread."""
+    import time
     from unittest.mock import MagicMock
 
     mock_root = MagicMock()
-    # Make after() just call the function directly (simulate main loop)
-    mock_root.after = lambda _ms, fn, *a: fn(*a)
+    pending: list[tuple[object, tuple[object, ...]]] = []
+
+    def fake_after(_ms: int, fn: object, *args: object) -> None:
+        pending.append((fn, args))
+
+    mock_root.after = fake_after
 
     from pathkeeper.gui.app import _BackgroundRunner
 
@@ -379,21 +521,27 @@ def test_background_runner_run_calls_func() -> None:
         results.append(val)
 
     runner.run(lambda: 42, on_success=on_done)
-    # Wait for the thread to finish
-    import time
-
     deadline = time.monotonic() + 2.0
     while not results and time.monotonic() < deadline:
+        while pending:
+            fn, args = pending.pop(0)
+            fn(*args)  # type: ignore[operator]
         time.sleep(0.01)
     assert results == [42]
 
 
 def test_background_runner_error_calls_handler() -> None:
     """Test that errors are routed to the error handler."""
+    import time
     from unittest.mock import MagicMock
 
     mock_root = MagicMock()
-    mock_root.after = lambda _ms, fn, *a: fn(*a)
+    pending: list[tuple[object, tuple[object, ...]]] = []
+
+    def fake_after(_ms: int, fn: object, *args: object) -> None:
+        pending.append((fn, args))
+
+    mock_root.after = fake_after
 
     from pathkeeper.gui.app import _BackgroundRunner
 
@@ -404,13 +552,39 @@ def test_background_runner_error_calls_handler() -> None:
         errors.append(exc)
 
     runner.run(lambda: 1 / 0, on_error=on_err)
-    import time
-
     deadline = time.monotonic() + 2.0
     while not errors and time.monotonic() < deadline:
+        while pending:
+            fn, args = pending.pop(0)
+            fn(*args)  # type: ignore[operator]
         time.sleep(0.01)
     assert len(errors) == 1
     assert isinstance(errors[0], ZeroDivisionError)
+
+
+def test_background_runner_skips_destroyed_widget_callback(
+    root: _tk.Tk, caplog: pytest.LogCaptureFixture
+) -> None:
+    from pathkeeper.gui.app import _BackgroundRunner
+
+    class _TestPanel(tk.Frame):  # type: ignore[name-defined,misc]
+        def __init__(self, parent: _tk.Tk) -> None:
+            super().__init__(parent)
+            self.called = False
+
+        def on_done(self, _value: int) -> None:
+            self.called = True
+            raise tk.TclError("invalid command name")
+
+    runner = _BackgroundRunner(root)
+    panel = _TestPanel(root)
+    panel.destroy()
+
+    with caplog.at_level(logging.INFO):
+        runner._dispatch_callback(panel.on_done, "_fetch", 42)
+
+    assert panel.called is False
+    assert "target widget no longer exists" in caplog.text
 
 
 # ── services tests ────────────────────────────────────────────────

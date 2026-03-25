@@ -1,6 +1,6 @@
 [project]
 name = "pathkeeper"
-version = "0.1.1"
+version = "0.1.2"
 description = "PATH backup, restore, and repair tool"
 readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
@@ -8,7 +8,7 @@ keywords = ["path"]
 license = "MIT"
 requires-python = ">=3.12"
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",

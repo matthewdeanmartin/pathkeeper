@@ -6,6 +6,7 @@ Launch via ``pathkeeper gui`` or ``pathkeeper --gui``.
 from __future__ import annotations
 
 import contextlib
+import logging
 import threading
 import tkinter as tk
 from functools import partial
@@ -13,6 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING, cast
 
 from pathkeeper import __version__
+from pathkeeper.errors import PermissionDeniedError
 from pathkeeper.models import Scope
 
 if TYPE_CHECKING:
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
 
     from pathkeeper.core.edit import EditSession
     from pathkeeper.core.path_writer import PathWriter
+    from pathkeeper.core.split_long import SplitLongPlan
     from pathkeeper.models import (
         BackupRecord,
         DiagnosticEntry,
@@ -41,6 +44,8 @@ _CLR_SIDEBAR = "#181825"
 _CLR_BTN = "#313244"
 _CLR_BTN_ACTIVE = "#45475a"
 
+logger = logging.getLogger(__name__)
+
 
 # ── background runner ────────────────────────────────────────────────
 class _BackgroundRunner:
@@ -48,6 +53,34 @@ class _BackgroundRunner:
 
     def __init__(self, root: tk.Tk) -> None:
         self._root = root
+
+    @staticmethod
+    def _callback_target_alive(callback: object) -> bool:
+        owner = getattr(callback, "__self__", None)
+        if not isinstance(owner, tk.Misc):
+            return True
+        try:
+            return bool(owner.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def _dispatch_callback(
+        self, callback: object, task_name: str, *args: object
+    ) -> None:
+        if not self._callback_target_alive(callback):
+            logger.info(
+                "Skipping background callback for %s because its target widget no longer exists.",
+                task_name,
+            )
+            return
+        try:
+            callback(*args)  # type: ignore[operator]
+        except (RuntimeError, tk.TclError) as exc:
+            logger.info(
+                "Dropped background callback for %s after widget teardown: %s",
+                task_name,
+                exc,
+            )
 
     def run(
         self,
@@ -57,20 +90,31 @@ class _BackgroundRunner:
         on_success: object = None,
         on_error: object = None,
     ) -> None:
+        task_name = getattr(func, "__name__", func.__class__.__name__)
+
         def _worker() -> None:
             try:
+                logger.info("Starting background task: %s", task_name)
                 result = func(*args)  # type: ignore[operator]
+                logger.info("Background task completed: %s", task_name)
                 if on_success is not None:
                     with contextlib.suppress(RuntimeError):
-                        self._root.after(0, on_success, result)  # type: ignore[arg-type]
+                        self._root.after(
+                            0, self._dispatch_callback, on_success, task_name, result
+                        )
             except Exception as exc:
+                logger.exception("Background task failed: %s", task_name)
                 with contextlib.suppress(RuntimeError):
                     if on_error is not None:
-                        self._root.after(0, on_error, exc)  # type: ignore[arg-type]
+                        self._root.after(
+                            0, self._dispatch_callback, on_error, task_name, exc
+                        )
                     else:
                         self._root.after(
                             0,
+                            self._dispatch_callback,
                             lambda exc: messagebox.showerror("Error", str(exc)),
+                            task_name,
                             exc,
                         )
 
@@ -87,6 +131,7 @@ def _tree_item_values(tree: ttk.Treeview, item_id: str) -> Sequence[object]:
 class PathkeeperApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+        logger.info("Initializing pathkeeper GUI.")
         self.title(f"pathkeeper {__version__}")
         self.geometry("1050x680")
         self.minsize(800, 500)
@@ -126,6 +171,7 @@ class PathkeeperApp(tk.Tk):
             ("dedupe", "Dedupe"),
             ("populate", "Populate"),
             ("repair", "Repair"),
+            ("split_long", "Split Long"),
             ("schedule", "Schedule"),
             ("shadow", "Shadows"),
             ("diff_current", "Diff vs Current"),
@@ -172,6 +218,7 @@ class PathkeeperApp(tk.Tk):
     def _show_panel(self, name: str) -> None:
         if name == self._active_panel:
             return
+        logger.info("Showing GUI panel: %s", name)
         # Highlight sidebar button
         for key, btn in self._sidebar_buttons.items():
             btn.configure(
@@ -207,6 +254,7 @@ def _build_panel(
         "dedupe": DedupePanel,
         "populate": PopulatePanel,
         "repair": RepairPanel,
+        "split_long": SplitLongPanel,
         "schedule": SchedulePanel,
         "shadow": ShadowPanel,
         "diff_current": DiffCurrentPanel,
@@ -1489,6 +1537,157 @@ class RepairPanel(_BasePanel):
         self._status.set(f"Error: {exc}")
 
 
+class SplitLongPanel(_BasePanel):
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
+        super().__init__(parent, runner, status_var)
+        tk.Label(
+            self,
+            text="Split Long PATH",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
+        self._scope_var = _make_scope_selector(
+            self, default="user", command=self._preview
+        )
+        self._max_length_var = tk.StringVar(value="2047")
+        self._chunk_length_var = tk.StringVar(value="2047")
+        self._var_prefix_var = tk.StringVar()
+
+        options = tk.Frame(self, bg=_CLR_BG)
+        options.pack(fill=tk.X, padx=8, pady=4)
+        for label, variable, width in (
+            ("Max PATH length", self._max_length_var, 8),
+            ("Chunk length", self._chunk_length_var, 8),
+            ("Var prefix", self._var_prefix_var, 24),
+        ):
+            group = tk.Frame(options, bg=_CLR_BG)
+            group.pack(side=tk.LEFT, padx=(0, 12))
+            tk.Label(
+                group,
+                text=label,
+                fg=_CLR_FG,
+                bg=_CLR_BG,
+                font=("Segoe UI", 10),
+            ).pack(anchor="w")
+            tk.Entry(
+                group,
+                textvariable=variable,
+                width=width,
+                bg=_CLR_BG_ALT,
+                fg=_CLR_FG,
+                insertbackground=_CLR_FG,
+                font=("Consolas", 10),
+                relief=tk.FLAT,
+            ).pack(anchor="w")
+
+        toolbar = _make_toolbar(self)
+        _toolbar_btn(toolbar, "Preview", self._preview)
+        _toolbar_btn(toolbar, "Apply", self._apply)
+        self._output = _make_output(self, height=18)
+        self._preview()
+
+    def _preview(self) -> None:
+        self._status.set("Planning split-long changes...")
+        self._runner.run(
+            self._render_plan,
+            args=self._plan_args(),
+            on_success=self._display,
+            on_error=self._on_error,
+        )
+
+    def _apply(self) -> None:
+        if not messagebox.askyesno(
+            "Split Long",
+            "Apply split-long changes? A backup will be created first.",
+        ):
+            return
+        self._status.set("Applying split-long changes...")
+        self._runner.run(
+            self._do_apply,
+            args=self._plan_args(),
+            on_success=self._display,
+            on_error=self._on_error,
+        )
+
+    def _plan_args(self) -> tuple[str, int, int, str | None]:
+        prefix = self._var_prefix_var.get().strip() or None
+        return (
+            self._scope_var.get(),
+            int(self._max_length_var.get()),
+            int(self._chunk_length_var.get()),
+            prefix,
+        )
+
+    @staticmethod
+    def _build_plan(
+        scope_str: str, max_length: int, chunk_length: int, var_prefix: str | None
+    ) -> SplitLongPlan:
+        from pathkeeper.core.split_long import build_split_long_plan
+        from pathkeeper.services import get_snapshot_and_adapter
+
+        snapshot, adapter, os_name = get_snapshot_and_adapter()
+        scope = Scope.from_value(scope_str)
+        env_reader_name = (
+            "read_system_environment"
+            if scope is Scope.SYSTEM
+            else "read_user_environment"
+        )
+        read_environment = getattr(adapter, env_reader_name, None)
+        if not callable(read_environment):
+            raise RuntimeError(
+                "split-long requires Windows environment-variable support."
+            )
+        return build_split_long_plan(
+            snapshot,
+            scope=scope,
+            os_name=os_name,
+            environment=read_environment(),
+            max_length=max_length,
+            chunk_length=chunk_length,
+            var_prefix=var_prefix,
+        )
+
+    @classmethod
+    def _render_plan(
+        cls, scope_str: str, max_length: int, chunk_length: int, var_prefix: str | None
+    ) -> str:
+        from pathkeeper.core.split_long import render_plan
+
+        plan = cls._build_plan(scope_str, max_length, chunk_length, var_prefix)
+        return render_plan(plan)
+
+    @classmethod
+    def _do_apply(
+        cls, scope_str: str, max_length: int, chunk_length: int, var_prefix: str | None
+    ) -> str:
+        from pathkeeper.core.path_writer import write_changed_snapshot
+        from pathkeeper.core.split_long import apply_plan_to_snapshot, render_plan
+        from pathkeeper.services import backup_now, get_snapshot_and_adapter
+
+        snapshot, adapter, _os_name = get_snapshot_and_adapter()
+        plan = cls._build_plan(scope_str, max_length, chunk_length, var_prefix)
+        if not plan.changed:
+            return render_plan(plan)
+        updated = apply_plan_to_snapshot(snapshot, plan)
+        backup_now(tag="pre-split-long", note="Before GUI split-long")
+        write_changed_snapshot(adapter, snapshot, updated, plan.scope)
+        return render_plan(plan) + "\n\nSplit-long complete."
+
+    def _display(self, text: str) -> None:
+        _output_set(self._output, text)
+        if "Split-long complete." in text:
+            self._status.set("Split-long complete")
+        else:
+            self._status.set("Split-long preview ready")
+
+    def _on_error(self, exc: Exception) -> None:
+        _output_set(self._output, f"Error: {exc}")
+        self._status.set(f"Error: {exc}")
+
+
 # ── Schedule ──────────────────────────────────────────────────────
 class SchedulePanel(_BasePanel):
     def __init__(
@@ -1519,7 +1718,9 @@ class SchedulePanel(_BasePanel):
         from pathkeeper.core.schedule import schedule_status
         from pathkeeper.platform import normalized_os_name
 
-        status = schedule_status(normalized_os_name())
+        os_name = normalized_os_name()
+        logger.info("Fetching GUI schedule status for os=%s", os_name)
+        status = schedule_status(os_name)
         if status.enabled:
             return f"Schedule is enabled: {status.detail}"
         return "Schedule is disabled. Use 'Install' to enable automatic backups."
@@ -1529,20 +1730,39 @@ class SchedulePanel(_BasePanel):
         from pathkeeper.core.schedule import install_schedule
         from pathkeeper.platform import normalized_os_name
 
-        return install_schedule(normalized_os_name(), "startup")
+        os_name = normalized_os_name()
+        logger.info("Installing schedule from GUI for os=%s", os_name)
+        try:
+            return install_schedule(os_name, "startup")
+        except PermissionDeniedError:
+            if os_name != "windows":
+                raise
+            logger.warning(
+                "Startup schedule install was denied on Windows; retrying as a per-user logon task."
+            )
+            result = install_schedule(os_name, "startup", trigger="logon")
+            return (
+                "Startup task creation needs elevation on Windows, so pathkeeper "
+                "installed a per-user logon task instead.\n\n"
+                f"{result}"
+            )
 
     @staticmethod
     def _do_remove() -> str:
         from pathkeeper.core.schedule import remove_schedule
         from pathkeeper.platform import normalized_os_name
 
-        return remove_schedule(normalized_os_name())
+        os_name = normalized_os_name()
+        logger.info("Removing schedule from GUI for os=%s", os_name)
+        return remove_schedule(os_name)
 
     def _install(self) -> None:
         if not messagebox.askyesno("Schedule", "Install automatic startup backups?"):
             return
         self._runner.run(
-            self._do_install, on_success=self._display, on_error=self._on_error
+            self._do_install,
+            on_success=self._on_install_success,
+            on_error=self._on_error,
         )
 
     def _remove(self) -> None:
@@ -1556,7 +1776,15 @@ class SchedulePanel(_BasePanel):
         _output_set(self._output, text)
         self._status.set("Schedule checked")
 
+    def _on_install_success(self, _result: str) -> None:
+        logger.info("Schedule install succeeded; refreshing GUI schedule status.")
+        self._status.set("Schedule installed; refreshing status...")
+        self._runner.run(
+            self._fetch_status, on_success=self._display, on_error=self._on_error
+        )
+
     def _on_error(self, exc: Exception) -> None:
+        logger.error("GUI schedule action failed: %s", exc)
         _output_set(self._output, f"Error: {exc}")
         self._status.set(f"Error: {exc}")
 
@@ -1910,8 +2138,10 @@ class SelfCheckPanel(_BasePanel):
 # ── entry point ───────────────────────────────────────────────────
 def launch_gui() -> int:
     """Create and run the tkinter application.  Returns 0."""
+    logger.info("Launching pathkeeper GUI.")
     app = PathkeeperApp()
     app.mainloop()
+    logger.info("Pathkeeper GUI exited.")
     return 0
 
 

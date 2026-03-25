@@ -73,6 +73,31 @@ class WindowsPlatform:
             _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY
         )[1]
 
+    def _read_registry_environment(self, root: Any, key_name: str) -> dict[str, str]:
+        if _WINREG is None:
+            return dict(os.environ)
+        with _WINREG.OpenKey(root, key_name) as key:
+            index = 0
+            values: dict[str, str] = {}
+            while True:
+                try:
+                    name, value, _value_type = _WINREG.EnumValue(key, index)
+                except OSError:
+                    break
+                values[str(name)] = str(value)
+                index += 1
+        return values
+
+    def read_system_environment(self) -> dict[str, str]:
+        return self._read_registry_environment(
+            _WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY
+        )
+
+    def read_user_environment(self) -> dict[str, str]:
+        return self._read_registry_environment(
+            _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY
+        )
+
     def _write_registry(self, root: Any, key_name: str, entries: list[str]) -> None:
         raw = ";".join(entries)
         if _WINREG is None:
@@ -97,6 +122,58 @@ class WindowsPlatform:
     def write_user_path(self, entries: list[str]) -> None:
         self._write_registry(
             _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY, entries
+        )
+
+    def _write_env_var(self, root: Any, key_name: str, name: str, value: str) -> None:
+        if _WINREG is None:
+            os.environ[name] = value
+            return
+        try:
+            with _WINREG.OpenKey(root, key_name, 0, _WINREG.KEY_SET_VALUE) as key:
+                _WINREG.SetValueEx(key, name, 0, _WINREG.REG_EXPAND_SZ, value)
+        except PermissionError as error:
+            scope_name = "system" if key_name == SYSTEM_KEY else "user"
+            raise PermissionDeniedError(
+                f"Access denied writing the {scope_name} environment variable {name}. "
+                "Re-run from an elevated shell or limit the operation to a writable scope."
+            ) from error
+        self._broadcast_change()
+
+    def _delete_env_var(self, root: Any, key_name: str, name: str) -> None:
+        if _WINREG is None:
+            os.environ.pop(name, None)
+            return
+        try:
+            with _WINREG.OpenKey(root, key_name, 0, _WINREG.KEY_SET_VALUE) as key:
+                _WINREG.DeleteValue(key, name)
+        except FileNotFoundError:
+            return
+        except PermissionError as error:
+            scope_name = "system" if key_name == SYSTEM_KEY else "user"
+            raise PermissionDeniedError(
+                f"Access denied deleting the {scope_name} environment variable {name}. "
+                "Re-run from an elevated shell or limit the operation to a writable scope."
+            ) from error
+        self._broadcast_change()
+
+    def write_system_env_var(self, name: str, value: str) -> None:
+        self._write_env_var(
+            _WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY, name, value
+        )
+
+    def write_user_env_var(self, name: str, value: str) -> None:
+        self._write_env_var(
+            _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY, name, value
+        )
+
+    def delete_system_env_var(self, name: str) -> None:
+        self._delete_env_var(
+            _WINREG.HKEY_LOCAL_MACHINE if _WINREG else object(), SYSTEM_KEY, name
+        )
+
+    def delete_user_env_var(self, name: str) -> None:
+        self._delete_env_var(
+            _WINREG.HKEY_CURRENT_USER if _WINREG else object(), USER_KEY, name
         )
 
     def ensure_system_writable(self) -> None:

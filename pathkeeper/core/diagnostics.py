@@ -12,6 +12,7 @@ from pathkeeper.models import (
 )
 
 WINDOWS_VAR_PATTERN = re.compile(r"%[^%]+%")
+WINDOWS_VAR_CAPTURE_PATTERN = re.compile(r"%([^%]+)%")
 UNIX_VAR_PATTERN = re.compile(r"\$(?:\{[^}]+\}|[A-Za-z_][A-Za-z0-9_]*)")
 
 
@@ -29,8 +30,30 @@ def join_path(entries: list[str], os_name: str) -> str:
     return path_separator_for(os_name).join(entries)
 
 
-def expand_entry(entry: str) -> str:
-    return os.path.expanduser(os.path.expandvars(entry.strip().strip('"')))
+def _windows_env_values() -> dict[str, str]:
+    values = {key.casefold(): value for key, value in os.environ.items()}
+    if "systemroot" not in values and "windir" in values:
+        values["systemroot"] = values["windir"]
+    if "windir" not in values and "systemroot" in values:
+        values["windir"] = values["systemroot"]
+    return values
+
+
+def _expand_windows_vars(value: str) -> str:
+    values = _windows_env_values()
+
+    def replace(match: re.Match[str]) -> str:
+        replacement = values.get(match.group(1).casefold())
+        return replacement if replacement is not None else match.group(0)
+
+    return WINDOWS_VAR_CAPTURE_PATTERN.sub(replace, value)
+
+
+def expand_entry(entry: str, os_name: str | None = None) -> str:
+    cleaned = entry.strip().strip('"')
+    if os_name == "windows":
+        return os.path.expanduser(_expand_windows_vars(cleaned))
+    return os.path.expanduser(os.path.expandvars(cleaned))
 
 
 def has_unexpanded_variables(entry: str, os_name: str) -> bool:
@@ -70,7 +93,7 @@ def _looks_like_missing_separator(entry: str, os_name: str) -> bool:
 
 
 def canonicalize_entry(entry: str, os_name: str) -> str:
-    value = expand_entry(entry)
+    value = expand_entry(entry, os_name)
     if os_name == "windows":
         normalized = value.replace("/", "\\").rstrip("\\").strip('"')
         return normalized.casefold().strip()
@@ -91,7 +114,7 @@ def _analyze_group(
 
     results: list[DiagnosticEntry] = []
     for offset, entry in enumerate(entries):
-        expanded = expand_entry(entry)
+        expanded = expand_entry(entry, os_name)
         canonical = canonicalize_entry(entry, os_name)
         is_empty = entry.strip() == ""
         path = Path(expanded) if expanded else None
@@ -116,7 +139,7 @@ def _analyze_group(
                 is_duplicate=duplicate_of is not None,
                 duplicate_of=duplicate_of,
                 is_empty=is_empty,
-                has_unexpanded_vars=has_unexpanded_variables(entry, os_name),
+                has_unexpanded_vars=has_unexpanded_variables(expanded, os_name),
                 expanded_value=expanded,
                 executables=exes,
                 likely_missing_separator=missing_sep,
@@ -155,7 +178,10 @@ def analyze_snapshot(
                 "PATH exceeds the Windows registry limit of 32767 characters."
             )
         elif path_length > 2047:
-            warnings.append("PATH exceeds the legacy setx limit of 2047 characters.")
+            warnings.append(
+                "PATH exceeds the legacy setx limit of 2047 characters. "
+                "Consider `pathkeeper split-long`."
+            )
     missing_sep_count = sum(1 for item in entries if item.likely_missing_separator)
     if missing_sep_count:
         warnings.append(
@@ -349,32 +375,18 @@ def doctor_checks(report: DiagnosticReport) -> list[DoctorCheck]:
         )
 
     # 6. Unexpanded / unresolvable variables
-    # An entry "has_unexpanded_vars" when the raw value still contains a
-    # %VAR% or $VAR token after os.path.expandvars().  That happens when the
-    # variable is not defined in the current process environment.  We split
-    # into two buckets:
-    #   • unresolvable: expanded_value still matches the raw value (the var
-    #     was never substituted — the variable is undefined)
-    #   • unexpanded_only: the token survived but expansion did change the
-    #     string (shouldn't happen given how expandvars works, kept for safety)
     unexp = [
         e
         for e in report.entries
         if e.has_unexpanded_vars and not e.is_empty and not e.is_duplicate
     ]
-    # Unresolvable = the variable token is still literally present after
-    # expansion (os.path.expandvars left it unchanged because the var is
-    # missing from the current environment).
-    unresolvable = [
-        e for e in unexp if e.expanded_value == e.value or e.has_unexpanded_vars
-    ]
-    if unresolvable:
+    if unexp:
         checks.append(
             DoctorCheck(
                 "Unresolvable variables",
                 status=_STATUS_WARN,
-                detail=f"{len(unresolvable)} found",
-                affected=unresolvable,
+                detail=f"{len(unexp)} found",
+                affected=unexp,
                 remediation=(
                     "These entries contain %VAR% or $VAR references that the "
                     "current process cannot expand — the variables are likely "
@@ -400,7 +412,8 @@ def doctor_checks(report: DiagnosticReport) -> list[DoctorCheck]:
                     detail=f"{report.path_length:,} chars (exceeds registry limit)",
                     remediation=(
                         "PATH exceeds the Windows registry limit of 32,767 characters. "
-                        "Create a backup and remove unnecessary entries."
+                        "Create a backup, remove unnecessary entries, or use "
+                        "`pathkeeper split-long` to move groups of entries into helper variables."
                     ),
                 )
             )
@@ -412,7 +425,8 @@ def doctor_checks(report: DiagnosticReport) -> list[DoctorCheck]:
                     detail=f"{report.path_length:,} chars (exceeds setx limit)",
                     remediation=(
                         "PATH exceeds the legacy setx limit of 2,047 characters. "
-                        "Some older tools may not see the full PATH."
+                        "Some older tools may not see the full PATH. "
+                        "Use `pathkeeper split-long` to shorten PATH without removing entries."
                     ),
                 )
             )

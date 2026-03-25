@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from pathkeeper.core.diagnostics import (
     _looks_like_missing_separator,
     analyze_snapshot,
+    doctor_checks,
+    expand_entry,
     explain_entry,
 )
 from pathkeeper.models import Scope
@@ -121,3 +125,36 @@ def test_explain_entry_missing_separator() -> None:
 
 def test_windows_embedded_semicolon() -> None:
     assert _looks_like_missing_separator(r"C:\foo;C:\bar", "windows") is True
+
+
+def test_expand_entry_windows_vars_are_case_insensitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SystemRoot", raising=False)
+    monkeypatch.setenv("SYSTEMROOT", r"C:\WINDOWS")
+
+    assert expand_entry(r"%SYSTEMROOT%\System32", "windows") == r"C:\WINDOWS\System32"
+    assert expand_entry(r"%SystemRoot%\System32", "windows") == r"C:\WINDOWS\System32"
+
+
+def test_doctor_ignores_resolved_windows_vars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SystemRoot", raising=False)
+    monkeypatch.setenv("SYSTEMROOT", r"C:\WINDOWS")
+
+    report = analyze_snapshot(
+        system_entries=[r"%SYSTEMROOT%\System32", r"%SystemRoot%\System32"],
+        user_entries=[],
+        os_name="windows",
+        scope=Scope.SYSTEM,
+        raw_value=r"%SYSTEMROOT%\System32;%SystemRoot%\System32",
+    )
+
+    assert all(not entry.has_unexpanded_vars for entry in report.entries)
+    unresolvable = next(
+        check
+        for check in doctor_checks(report)
+        if check.name == "Unresolvable variables"
+    )
+    assert unresolvable.status == "pass"

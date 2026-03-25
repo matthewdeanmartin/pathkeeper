@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from pathkeeper.core.populate import discover_tools
 from pathkeeper.models import CatalogTool
 
@@ -29,7 +31,14 @@ def test_discover_tools_keeps_latest_python_version_with_scripts(
 
     matches = discover_tools(catalog, [], os_name="windows")
 
-    assert [match.path for match in matches] == [str(python313), str(python313_scripts)]
+    programming_matches = [
+        match for match in matches if match.category == "Programming Languages"
+    ]
+
+    assert [match.path for match in programming_matches] == [
+        str(python313),
+        str(python313_scripts),
+    ]
 
 
 def test_discover_tools_keeps_latest_node_version(tmp_path: Path) -> None:
@@ -48,4 +57,57 @@ def test_discover_tools_keeps_latest_node_version(tmp_path: Path) -> None:
 
     matches = discover_tools(catalog, [], os_name="windows")
 
-    assert [match.path for match in matches] == [str(node18)]
+    programming_matches = [
+        match for match in matches if match.category == "Programming Languages"
+    ]
+
+    assert [match.path for match in programming_matches] == [str(node18)]
+
+
+def test_discover_tools_adds_missing_unix_baseline_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    baseline = [tmp_path / "usr-local-bin", tmp_path / "usr-bin"]
+    for path in baseline:
+        path.mkdir()
+
+    from pathkeeper.core import populate as populate_mod
+
+    monkeypatch.setattr(
+        populate_mod,
+        "_baseline_paths",
+        lambda _os_name: [str(path) for path in baseline],
+    )
+
+    matches = discover_tools([], [str(baseline[0])], os_name="linux")
+
+    assert [(match.category, match.name, match.path) for match in matches] == [
+        ("Baseline", "Standard commands", str(baseline[1]))
+    ]
+
+
+def test_discover_tools_adds_missing_windows_baseline_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    baseline = [
+        tmp_path / "Windows" / "system32",
+        tmp_path / "Windows",
+        tmp_path / "Windows" / "System32" / "Wbem",
+    ]
+    for path in baseline:
+        path.mkdir(parents=True, exist_ok=True)
+
+    from pathkeeper.core import populate as populate_mod
+
+    monkeypatch.setattr(
+        populate_mod,
+        "_baseline_paths",
+        lambda _os_name: [str(path) for path in baseline],
+    )
+
+    matches = discover_tools([], [str(baseline[1])], os_name="windows")
+
+    assert [(match.category, match.name, match.path) for match in matches] == [
+        ("Baseline", "Standard commands", str(baseline[0])),
+        ("Baseline", "Standard commands", str(baseline[2])),
+    ]

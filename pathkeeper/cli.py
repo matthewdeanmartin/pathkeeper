@@ -87,6 +87,7 @@ examples:
   pathkeeper dedupe --dry-run
   pathkeeper dedupe
   pathkeeper repair-truncated
+  pathkeeper split-long --dry-run
 
   # Discover and add tools
   pathkeeper populate --dry-run
@@ -234,6 +235,33 @@ examples:
     )
     repair_truncated_parser.add_argument("--dry-run", action="store_true")
     repair_truncated_parser.add_argument("--force", action="store_true")
+
+    split_long_parser = subparsers.add_parser(
+        "split-long",
+        help="Split a long Windows PATH into helper variables.",
+    )
+    split_long_parser.add_argument(
+        "--scope", default="user", choices=["system", "user"]
+    )
+    split_long_parser.add_argument(
+        "--max-length",
+        type=int,
+        default=2047,
+        help="Target maximum length for the PATH value itself.",
+    )
+    split_long_parser.add_argument(
+        "--chunk-length",
+        type=int,
+        default=2047,
+        help="Maximum length for each helper variable value.",
+    )
+    split_long_parser.add_argument(
+        "--var-prefix",
+        default=None,
+        help="Prefix for generated helper variables (default depends on scope).",
+    )
+    split_long_parser.add_argument("--dry-run", action="store_true")
+    split_long_parser.add_argument("--force", action="store_true")
 
     edit_parser = subparsers.add_parser("edit", help="Edit PATH entries.")
     edit_parser.add_argument("--scope", default="user", choices=["system", "user"])
@@ -879,7 +907,10 @@ def _preflight_write(
 ) -> None:
     if scope not in {Scope.SYSTEM, Scope.ALL}:
         return
-    if current.system_path == updated.system_path:
+    if (
+        current.system_path == updated.system_path
+        and current.system_env_vars == updated.system_env_vars
+    ):
         return
     checker = getattr(adapter, "ensure_system_writable", None)
     if callable(checker):
@@ -1268,6 +1299,66 @@ def _repair_truncated(args: argparse.Namespace) -> int:
     write_changed_snapshot(adapter, snapshot, updated, scope)
     logger.info("Truncated PATH repair complete for scope=%s", args.scope)
     print("Truncated PATH repair complete.")
+    return 0
+
+
+def _split_long(args: argparse.Namespace) -> int:
+    from pathkeeper.core.path_writer import write_changed_snapshot
+    from pathkeeper.core.split_long import (
+        apply_plan_to_snapshot,
+        build_split_long_plan,
+        render_plan,
+    )
+
+    logger.info(
+        "Splitting long PATH for scope=%s max_length=%s chunk_length=%s",
+        args.scope,
+        args.max_length,
+        args.chunk_length,
+    )
+    config = load_config()
+    adapter = get_platform_adapter(config)
+    snapshot = read_snapshot(adapter)
+    scope = _scope(args.scope)
+    os_name = normalized_os_name()
+    env_reader_name = (
+        "read_system_environment" if scope is Scope.SYSTEM else "read_user_environment"
+    )
+    read_environment = getattr(adapter, env_reader_name, None)
+    if not callable(read_environment):
+        raise PathkeeperError(
+            "split-long requires Windows environment-variable support."
+        )
+    plan = build_split_long_plan(
+        snapshot,
+        scope=scope,
+        os_name=os_name,
+        environment=read_environment(),
+        max_length=args.max_length,
+        chunk_length=args.chunk_length,
+        var_prefix=args.var_prefix,
+    )
+    print(render_plan(plan))
+    if not plan.changed:
+        return 0
+    if args.dry_run:
+        print(t.dry_run("[dry-run] No changes written."))
+        return 0
+    updated = apply_plan_to_snapshot(snapshot, plan)
+    _preflight_write(snapshot, updated, scope, adapter)
+    _backup_now(tag="pre-split-long", note="Before split-long", quiet=False)
+    _confirm("Apply split-long changes?", force=args.force)
+    write_changed_snapshot(adapter, snapshot, updated, scope)
+    logger.info(
+        "Split-long complete for scope=%s with %d helper variable(s).",
+        args.scope,
+        len(plan.helper_vars),
+    )
+    print(
+        t.ok(
+            f"Split-long complete. PATH now uses {len(plan.helper_vars)} helper variable(s)."
+        )
+    )
     return 0
 
 
@@ -2023,36 +2114,42 @@ def _interactive() -> int:
             _repair_truncated,
         ),
         "11": MenuEntry(
+            "Split long",
+            "Shorten Windows PATH with helper variables",
+            parser.parse_args(["split-long"]),
+            _split_long,
+        ),
+        "12": MenuEntry(
             "Schedule status",
             "Check or install automatic backups",
             parser.parse_args(["schedule", "status"]),
             _interactive_schedule_status,
         ),
-        "12": MenuEntry(
+        "13": MenuEntry(
             "Shell startup",
             "Inject backup hook into shell startup file",
             parser.parse_args(["shell-startup"]),
             _shell_startup,
         ),
-        "13": MenuEntry(
+        "14": MenuEntry(
             "Shadows",
             "Find executables shadowed by earlier PATH entries",
             parser.parse_args(["shadow"]),
             _shadow,
         ),
-        "14": MenuEntry(
+        "15": MenuEntry(
             "Diff vs current",
             "Compare a backup against the current live PATH",
             parser.parse_args(["diff-current"]),
             _diff_current,
         ),
-        "15": MenuEntry(
+        "16": MenuEntry(
             "Runtime entries",
             "Show PATH entries injected at runtime",
             parser.parse_args(["runtime-entries"]),
             _runtime_entries,
         ),
-        "16": MenuEntry(
+        "17": MenuEntry(
             "Self-check",
             "Verify pathkeeper installation health",
             parser.parse_args(["selfcheck"]),
@@ -2106,6 +2203,8 @@ def run(argv: Sequence[str] | None = None) -> int:
         return _populate(args)
     if args.command == "repair-truncated":
         return _repair_truncated(args)
+    if args.command == "split-long":
+        return _split_long(args)
     if args.command == "edit":
         return _edit(args)
     if args.command == "schedule":

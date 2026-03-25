@@ -44,7 +44,7 @@ def _backup_candidates(
     for record in records:
         entries = record.system_path if scope is Scope.SYSTEM else record.user_path
         for entry in entries:
-            candidate_path = Path(expand_entry(entry))
+            candidate_path = Path(expand_entry(entry, os_name))
             candidate_text = str(candidate_path)
             canonical = (
                 candidate_text.casefold()
@@ -159,9 +159,10 @@ def _find_scope_repairs(
 ) -> list[TruncatedPathRepair]:
     repairs: list[TruncatedPathRepair] = []
     for index, entry in enumerate(entries):
-        if entry.strip() == "" or has_unexpanded_variables(entry, os_name):
+        expanded_text = expand_entry(entry, os_name)
+        if entry.strip() == "" or has_unexpanded_variables(expanded_text, os_name):
             continue
-        expanded = Path(expand_entry(entry))
+        expanded = Path(expanded_text)
         if expanded.exists():
             continue
         target_parts = _normalized_parts(entry, os_name)

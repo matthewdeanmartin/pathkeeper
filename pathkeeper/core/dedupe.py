@@ -6,8 +6,8 @@ from pathkeeper.core.diagnostics import canonicalize_entry, expand_entry
 from pathkeeper.models import CleanupResult
 
 
-def _is_valid_directory(entry: str) -> bool:
-    expanded = expand_entry(entry)
+def _is_valid_directory(entry: str, os_name: str) -> bool:
+    expanded = expand_entry(entry, os_name)
     return Path(expanded).is_dir()
 
 
@@ -37,7 +37,7 @@ def dedupe_entries(
         if canonical in seen:
             removed_duplicates.append(entry)
             continue
-        if remove_invalid and not _is_valid_directory(entry):
+        if remove_invalid and not _is_valid_directory(entry, os_name):
             removed_invalid.append(entry)
             continue
         kept.append(entry)

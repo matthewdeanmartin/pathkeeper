@@ -13,6 +13,45 @@ from pathkeeper.core.diagnostics import canonicalize_entry
 from pathkeeper.models import CatalogTool, PopulateMatch
 
 
+def _baseline_paths(os_name: str) -> list[str]:
+    if os_name == "windows":
+        system_root = os.environ.get("SYSTEMROOT") or os.environ.get("WINDIR")
+        if not system_root:
+            system_root = r"C:\Windows"
+        return [
+            str(Path(system_root) / "system32"),
+            str(Path(system_root)),
+            str(Path(system_root) / "System32" / "Wbem"),
+        ]
+    if os_name in {"linux", "darwin"}:
+        return ["/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    return []
+
+
+def _baseline_matches(
+    existing: set[str], matches: dict[str, PopulateMatch], os_name: str
+) -> list[PopulateMatch]:
+    from pathkeeper.core.executables import list_executables
+
+    baseline_matches: list[PopulateMatch] = []
+    for candidate in _baseline_paths(os_name):
+        path = Path(candidate)
+        if not path.is_dir():
+            continue
+        canonical = canonicalize_entry(candidate, os_name)
+        if canonical in existing or canonical in matches:
+            continue
+        baseline_matches.append(
+            PopulateMatch(
+                name="Standard commands",
+                category="Baseline",
+                path=str(path),
+                found_executables=list_executables(str(path), os_name),
+            )
+        )
+    return baseline_matches
+
+
 def _load_bundled_executables() -> dict[tuple[str, str], list[str]]:
     """Return a mapping of (name, os) -> executables from the bundled catalog.
 
@@ -223,7 +262,11 @@ def discover_tools(
                     path=candidate,
                     found_executables=exes,
                 )
-    return _prefer_latest_versions(list(matches.values()))
+    selected = _prefer_latest_versions(list(matches.values()))
+    selected.extend(_baseline_matches(existing, matches, os_name))
+    return sorted(
+        selected, key=lambda item: (item.category, item.name, item.path.casefold())
+    )
 
 
 def group_matches(matches: list[PopulateMatch]) -> dict[str, list[PopulateMatch]]:

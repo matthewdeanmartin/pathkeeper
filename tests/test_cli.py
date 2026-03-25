@@ -16,9 +16,24 @@ from pathkeeper.models import BackupRecord
 
 
 class StubAdapter:
-    def __init__(self, system: list[str], user: list[str]) -> None:
+    def __init__(
+        self,
+        system: list[str],
+        user: list[str],
+        *,
+        system_env: dict[str, str] | None = None,
+        user_env: dict[str, str] | None = None,
+    ) -> None:
         self._system = system
         self._user = user
+        self._system_env = dict(system_env or {})
+        self._user_env = dict(user_env or {})
+
+    @staticmethod
+    def _separator(entries: list[str]) -> str:
+        if any("\\" in entry or entry.startswith("%") for entry in entries):
+            return ";"
+        return ":"
 
     def read_system_path(self) -> list[str]:
         return list(self._system)
@@ -27,16 +42,34 @@ class StubAdapter:
         return list(self._user)
 
     def read_system_path_raw(self) -> str:
-        return ":".join(self._system)
+        return self._separator(self._system).join(self._system)
 
     def read_user_path_raw(self) -> str:
-        return ":".join(self._user)
+        return self._separator(self._user).join(self._user)
+
+    def read_system_environment(self) -> dict[str, str]:
+        return dict(self._system_env)
+
+    def read_user_environment(self) -> dict[str, str]:
+        return dict(self._user_env)
 
     def write_system_path(self, entries: list[str]) -> None:
         self._system = list(entries)
 
     def write_user_path(self, entries: list[str]) -> None:
         self._user = list(entries)
+
+    def write_system_env_var(self, name: str, value: str) -> None:
+        self._system_env[name] = value
+
+    def write_user_env_var(self, name: str, value: str) -> None:
+        self._user_env[name] = value
+
+    def delete_system_env_var(self, name: str) -> None:
+        self._system_env.pop(name, None)
+
+    def delete_user_env_var(self, name: str) -> None:
+        self._user_env.pop(name, None)
 
 
 class GuardedSystemWriteAdapter(StubAdapter):
@@ -325,6 +358,7 @@ def test_interactive_menu_includes_backup_browser(
     assert "Show backup" in output
     assert "Edit" in output
     assert "Repair truncated" in output
+    assert "Split long" in output
     assert "Schedule status" in output
 
 
@@ -460,6 +494,122 @@ def test_repair_truncated_applies_single_backup_candidate(
     assert adapter.read_user_path() == [str(full_dir)]
 
 
+def test_split_long_dry_run_reports_plan(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    adapter = StubAdapter(
+        system=[],
+        user=[
+            r"C:\Tools\Alpha\bin",
+            r"C:\Tools\Beta\bin",
+            r"C:\Tools\Gamma\bin",
+            r"C:\Tools\Delta\bin",
+        ],
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
+
+    exit_code = cli.run(
+        [
+            "split-long",
+            "--dry-run",
+            "--max-length",
+            "40",
+            "--chunk-length",
+            "32",
+            "--var-prefix",
+            "DEV_PATHS",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Helper variable values:" in output
+    assert "%DEV_PATHS_1%" in output
+    assert "[dry-run] No changes written." in output
+    assert adapter.read_user_path()[-1] == r"C:\Tools\Delta\bin"
+    assert adapter.read_user_environment() == {}
+
+
+def test_split_long_writes_helper_vars_and_updates_path(
+    monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    adapter = StubAdapter(
+        system=[],
+        user=[
+            r"C:\Tools\Alpha\bin",
+            r"C:\Tools\Beta\bin",
+            r"C:\Tools\Gamma\bin",
+            r"C:\Tools\Delta\bin",
+        ],
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
+    monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
+
+    exit_code = cli.run(
+        [
+            "split-long",
+            "--force",
+            "--max-length",
+            "40",
+            "--chunk-length",
+            "32",
+            "--var-prefix",
+            "DEV_PATHS",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Split-long complete." in output
+    assert all(entry.startswith("%DEV_PATHS_") for entry in adapter.read_user_path())
+    assert set(adapter.read_user_environment()) == {"DEV_PATHS_1"}
+    assert len(list(tmp_path.glob("*.json"))) == 1
+
+
+def test_restore_rehydrates_helper_environment_variables(
+    monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    backup_path = tmp_path / "2025-03-05T10-00-00_manual.json"
+    record = BackupRecord(
+        version=1,
+        timestamp=datetime.fromisoformat("2025-03-05T10:00:00+00:00"),
+        hostname="host",
+        os_name="windows",
+        tag="manual",
+        note="",
+        system_path=[],
+        user_path=["%PK_USER_PATHS_1%"],
+        system_path_raw="",
+        user_path_raw="%PK_USER_PATHS_1%",
+        user_env_vars={"PK_USER_PATHS_1": r"C:\Tools\Alpha\bin;C:\Tools\Beta\bin"},
+        source_file=backup_path,
+    )
+    backup_path.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
+    adapter = StubAdapter(
+        system=[], user=[r"C:\Temp\bin"], user_env={"OLD_PATHS_1": "x"}
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
+    monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
+
+    exit_code = cli.run(
+        ["restore", str(backup_path), "--scope", "user", "--force", "--no-pre-backup"]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Restore complete." in output
+    assert adapter.read_user_path() == ["%PK_USER_PATHS_1%"]
+    assert adapter.read_user_environment()["PK_USER_PATHS_1"] == (
+        r"C:\Tools\Alpha\bin;C:\Tools\Beta\bin"
+    )
+
+
 def test_schedule_status_hides_low_level_disabled_detail(
     monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
 ) -> None:
@@ -516,7 +666,7 @@ def test_interactive_schedule_status_offers_install_when_disabled(
         "install_schedule",
         lambda _os_name, _interval, *, trigger="startup": "Installed Windows scheduled task.",
     )
-    responses = iter(["11", "", "q"])
+    responses = iter(["12", "", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     exit_code = cli.run([])
     output = capsys.readouterr().out
@@ -541,7 +691,7 @@ def test_interactive_schedule_status_falls_back_to_logon_on_windows_permission_e
         return "Installed Windows scheduled task for user logon."
 
     monkeypatch.setattr(_schedule_mod, "install_schedule", fake_install)
-    responses = iter(["11", "", "", "q"])
+    responses = iter(["12", "", "", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     exit_code = cli.run([])
     output = capsys.readouterr().out
@@ -564,7 +714,7 @@ def test_interactive_schedule_status_explains_when_logon_fallback_is_also_denied
         raise PermissionDeniedError("Access is denied.")
 
     monkeypatch.setattr(_schedule_mod, "install_schedule", fake_install)
-    responses = iter(["11", "", "", "q"])
+    responses = iter(["12", "", "", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     exit_code = cli.run([])
     output = capsys.readouterr().out

@@ -55,6 +55,8 @@ def create_backup(
         user_path=list(snapshot.user_path),
         system_path_raw=snapshot.system_path_raw,
         user_path_raw=snapshot.user_path_raw,
+        system_env_vars=dict(snapshot.system_env_vars),
+        user_env_vars=dict(snapshot.user_env_vars),
     )
     latest = _load_latest_backup(backup_dir)
     if (
@@ -94,6 +96,14 @@ def load_backup(path: Path) -> BackupRecord:
         user_path=[str(item) for item in payload["user_path"]],
         system_path_raw=str(payload["system_path_raw"]),
         user_path_raw=str(payload["user_path_raw"]),
+        system_env_vars={
+            str(name): str(value)
+            for name, value in dict(payload.get("system_env_vars", {})).items()
+        },
+        user_env_vars={
+            str(name): str(value)
+            for name, value in dict(payload.get("user_env_vars", {})).items()
+        },
         source_file=path,
     )
 
@@ -105,6 +115,8 @@ def backup_content_hash(record: BackupRecord) -> str:
         "user_path": record.user_path,
         "system_path_raw": record.system_path_raw,
         "user_path_raw": record.user_path_raw,
+        "system_env_vars": record.system_env_vars,
+        "user_env_vars": record.user_env_vars,
     }
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
