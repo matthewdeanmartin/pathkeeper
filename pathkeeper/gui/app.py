@@ -572,7 +572,10 @@ class LocatePanel(_BasePanel):
             path = str(_tree_item_values(self._tree, sel[0])[0])
             folder = os.path.dirname(path)
             if self._os_name == "windows":
-                os.startfile(folder)
+                # Use getattr for mypy on Linux
+                startfile = getattr(os, "startfile", None)
+                if startfile:  # pylint: disable=using-constant-test
+                    startfile(folder)
             else:
                 subprocess.run(["xdg-open", folder], check=False)
 
