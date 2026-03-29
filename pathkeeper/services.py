@@ -175,8 +175,17 @@ def diff_backup_vs_current(identifier: str, scope: Scope) -> tuple[str, str, str
 
 
 # ------------------------------------------------------------------
-# Runtime PATH detection
+# Locate
 # ------------------------------------------------------------------
+
+
+def locate_executable_service(
+    name: str, find_all: bool = False, drive: str | None = None
+) -> list[Path]:
+    """Search for an executable anywhere on the filesystem."""
+    from pathkeeper.core.locate import locate_executable
+
+    return locate_executable(name, find_all=find_all, drive=drive)
 
 
 def detect_runtime_path_entries() -> list[RuntimePathEntry]:

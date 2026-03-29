@@ -174,3 +174,13 @@ Platform behavior:
 - Windows uses Task Scheduler
 - macOS writes a launchd agent
 - Linux writes systemd user timer files
+
+## `pathkeeper locate`
+
+Find an executable anywhere on the computer.
+
+```bash
+uv run pathkeeper locate <name> [--all] [--drive DRIVE]
+```
+
+`locate` is a "fancy which" that searches likely tool locations first, then performs a deep search across the filesystem using the fastest available tools (`ripgrep`, `fd`, `mdfind`, `locate`, or a Python fallback).

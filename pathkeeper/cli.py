@@ -364,6 +364,19 @@ examples:
         help="Verify pathkeeper installation (backup dir, catalog, adapter, auto-backup).",
     )
 
+    locate_parser = subparsers.add_parser(
+        "locate", help="Find an executable anywhere on the computer (fancy 'which')."
+    )
+    locate_parser.add_argument("name", help="Name of the executable to find.")
+    locate_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Find all occurrences instead of just the first.",
+    )
+    locate_parser.add_argument(
+        "--drive", help="Drive to search (Windows only, e.g. D:\\)."
+    )
+
     subparsers.add_parser("gui", help="Launch the graphical interface.")
 
     parser.add_argument(
@@ -1962,6 +1975,33 @@ def _selfcheck(_args: argparse.Namespace) -> int:
     return report.exit_code
 
 
+def _locate(args: argparse.Namespace) -> int:
+    from pathkeeper.core.locate import locate_executable
+
+    print(t.dim(f"Searching for '{args.name}'..."))
+    results = locate_executable(args.name, find_all=args.all, drive=args.drive)
+
+    if not results:
+        print(t.error(f"Could not find '{args.name}'."))
+        return 1
+
+    for path in results:
+        print(t.ok(str(path)))
+    return 0
+
+
+def _interactive_locate(_args: argparse.Namespace) -> int:
+    name = input("Executable name to locate: ").strip()
+    if not name:
+        print(t.error("No name provided."))
+        return 1
+    find_all_input = input("Find all occurrences? [y/N]: ").strip().lower()
+    find_all = find_all_input in ("y", "yes")
+    parser = build_parser()
+    locate_args = parser.parse_args(["locate", name] + (["--all"] if find_all else []))
+    return _locate(locate_args)
+
+
 def _first_run_wizard() -> int:
     """Interactive onboarding for new users (no ~/.pathkeeper/ found)."""
     from pathkeeper.config import ensure_app_state
@@ -2155,6 +2195,12 @@ def _interactive() -> int:
             parser.parse_args(["selfcheck"]),
             _selfcheck,
         ),
+        "18": MenuEntry(
+            "Locate executable",
+            "Find an executable anywhere on the computer",
+            parser.parse_args(["inspect"]),  # placeholder args, handler prompts
+            _interactive_locate,
+        ),
     }
     _print_interactive_startup_banner()
     return run_interactive(dispatch)
@@ -2221,6 +2267,8 @@ def run(argv: Sequence[str] | None = None) -> int:
         return _shell_startup(args)
     if args.command == "selfcheck":
         return _selfcheck(args)
+    if args.command == "locate":
+        return _locate(args)
     raise PathkeeperError(f"Unknown command: {args.command}")
 
 

@@ -170,6 +170,7 @@ class PathkeeperApp(tk.Tk):
             ("edit", "Edit PATH"),
             ("dedupe", "Dedupe"),
             ("populate", "Populate"),
+            ("locate", "Locate"),
             ("repair", "Repair"),
             ("split_long", "Split Long"),
             ("schedule", "Schedule"),
@@ -253,6 +254,7 @@ def _build_panel(
         "edit": EditPanel,
         "dedupe": DedupePanel,
         "populate": PopulatePanel,
+        "locate": LocatePanel,
         "repair": RepairPanel,
         "split_long": SplitLongPanel,
         "schedule": SchedulePanel,
@@ -418,6 +420,196 @@ class _BasePanel(tk.Frame):
         super().__init__(parent, bg=_CLR_BG)
         self._runner = runner
         self._status = status_var
+
+
+# ── Locate ────────────────────────────────────────────────────────
+class LocatePanel(_BasePanel):
+    def __init__(
+        self, parent: tk.Misc, runner: _BackgroundRunner, status_var: tk.StringVar
+    ) -> None:
+        super().__init__(parent, runner, status_var)
+        tk.Label(
+            self,
+            text="Locate Executable",
+            font=("Segoe UI", 14, "bold"),
+            fg=_CLR_ACCENT,
+            bg=_CLR_BG,
+        ).pack(pady=(12, 4))
+
+        # Search controls
+        search_frame = tk.Frame(self, bg=_CLR_BG)
+        search_frame.pack(fill=tk.X, padx=16, pady=8)
+
+        tk.Label(search_frame, text="Executable Name:", bg=_CLR_BG, fg=_CLR_FG).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        self._name_var = tk.StringVar()
+        self._entry = tk.Entry(
+            search_frame,
+            textvariable=self._name_var,
+            width=20,
+            bg=_CLR_BG_ALT,
+            fg=_CLR_FG,
+            insertbackground=_CLR_FG,
+            relief=tk.FLAT,
+        )
+        self._entry.pack(side=tk.LEFT, padx=(0, 16))
+        self._entry.bind("<Return>", lambda _: self._search())
+
+        self._all_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            search_frame,
+            text="Find All",
+            variable=self._all_var,
+            bg=_CLR_BG,
+            fg=_CLR_FG,
+            selectcolor=_CLR_BG_ALT,
+            activebackground=_CLR_BG,
+            activeforeground=_CLR_FG,
+        ).pack(side=tk.LEFT, padx=(0, 16))
+
+        from pathkeeper.platform import normalized_os_name
+
+        self._os_name = normalized_os_name()
+        self._drive_var = tk.StringVar(value="C:\\")
+        if self._os_name == "windows":
+            tk.Label(search_frame, text="Drive:", bg=_CLR_BG, fg=_CLR_FG).pack(
+                side=tk.LEFT, padx=(0, 8)
+            )
+            tk.Entry(
+                search_frame,
+                textvariable=self._drive_var,
+                width=4,
+                bg=_CLR_BG_ALT,
+                fg=_CLR_FG,
+                insertbackground=_CLR_FG,
+                relief=tk.FLAT,
+            ).pack(side=tk.LEFT, padx=(0, 16))
+
+        _toolbar_btn(search_frame, "Search", self._search)
+
+        self._tree = _make_tree(
+            self,
+            [
+                ("path", "Full Path", 800),
+            ],
+            height=15,
+        )
+
+        self._output = _make_output(self, height=4)
+        _output_set(
+            self._output,
+            "Enter an executable name to search for it anywhere on the computer.\n"
+            "This will use ripgrep (rg) if available, or a fast system search.",
+        )
+
+        # Context menu
+        self._menu = tk.Menu(self, tearoff=0, bg=_CLR_SIDEBAR, fg=_CLR_FG)
+        self._menu.add_command(label="Copy Path", command=self._copy_path)
+        self._menu.add_command(label="Open Folder", command=self._open_folder)
+        self._menu.add_separator()
+        self._menu.add_command(
+            label="Add Parent Folder to PATH", command=self._add_to_path
+        )
+        self._tree.bind("<Button-3>", self._show_menu)
+
+    def _search(self) -> None:
+        name = self._name_var.get().strip()
+        if not name:
+            return
+        find_all = self._all_var.get()
+        drive = self._drive_var.get() if self._os_name == "windows" else None
+
+        self._status.set(f"Searching for '{name}'...")
+        for item in self._tree.get_children():
+            self._tree.delete(item)
+
+        self._runner.run(
+            self._do_search,
+            args=(name, find_all, drive),
+            on_success=self._on_search_success,
+            on_error=self._on_error,
+        )
+
+    @staticmethod
+    def _do_search(name: str, find_all: bool, drive: str | None) -> list[str]:
+        from pathkeeper.services import locate_executable_service
+
+        results = locate_executable_service(name, find_all=find_all, drive=drive)
+        return [str(p) for p in results]
+
+    def _on_search_success(self, results: list[str]) -> None:
+        for r in results:
+            self._tree.insert("", tk.END, values=(r,))
+        count = len(results)
+        msg = f"Found {count} result(s)"
+        self._status.set(msg)
+        _output_set(self._output, msg)
+
+    def _on_error(self, exc: Exception) -> None:
+        self._status.set(f"Error: {exc}")
+        _output_set(self._output, f"Error: {exc}")
+
+    def _show_menu(self, event: tk.Event) -> None:
+        item = self._tree.identify_row(event.y)
+        if item:
+            self._tree.selection_set(item)
+            self._menu.post(event.x_root, event.y_root)
+
+    def _copy_path(self) -> None:
+        sel = self._tree.selection()
+        if sel:
+            path = str(_tree_item_values(self._tree, sel[0])[0])
+            self.clipboard_clear()
+            self.clipboard_append(path)
+
+    def _open_folder(self) -> None:
+        import os
+        import subprocess
+
+        sel = self._tree.selection()
+        if sel:
+            path = str(_tree_item_values(self._tree, sel[0])[0])
+            folder = os.path.dirname(path)
+            if self._os_name == "windows":
+                os.startfile(folder)
+            else:
+                subprocess.run(["xdg-open", folder], check=False)
+
+    def _add_to_path(self) -> None:
+        import os
+
+        sel = self._tree.selection()
+        if not sel:
+            return
+        path = str(_tree_item_values(self._tree, sel[0])[0])
+        folder = os.path.dirname(path)
+        if not messagebox.askyesno("Add to PATH", f"Add '{folder}' to your USER PATH?"):
+            return
+
+        self._status.set(f"Adding {folder} to PATH...")
+        self._runner.run(
+            self._do_add,
+            args=(folder,),
+            on_success=lambda msg: messagebox.showinfo("Success", msg),
+            on_error=self._on_error,
+        )
+
+    @staticmethod
+    def _do_add(folder: str) -> str:
+        from pathkeeper.core.diagnostics import join_path
+        from pathkeeper.core.path_writer import write_changed_snapshot
+        from pathkeeper.services import backup_now, get_snapshot_and_adapter
+
+        snapshot, adapter, os_name = get_snapshot_and_adapter()
+        scope = Scope.USER
+        backup_now(tag="pre-locate-add", note=f"Before adding {folder} via Locate")
+        new_entries = [*snapshot.user_path, folder]
+        updated = snapshot.with_scope_entries(
+            scope, new_entries, join_path(new_entries, os_name)
+        )
+        write_changed_snapshot(adapter, snapshot, updated, scope)
+        return f"Added '{folder}' to USER PATH."
 
 
 # ── Dashboard ─────────────────────────────────────────────────────

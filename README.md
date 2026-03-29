@@ -132,6 +132,19 @@ pathkeeper shadow
 pathkeeper runtime-entries
 ```
 
+### Find an executable
+
+```bash
+# Find an executable anywhere on the computer (fancy 'which')
+pathkeeper locate python
+
+# Find all occurrences
+pathkeeper locate python --all
+
+# Windows: search a specific drive
+pathkeeper locate python --drive D:\
+```
+
 ### Edit PATH directly
 
 ```bash

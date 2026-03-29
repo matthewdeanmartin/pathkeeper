@@ -35,7 +35,15 @@ uv run pathkeeper dedupe --force
 
 The first command previews the cleanup. The second applies it without an interactive confirmation prompt.
 
-## 5. Start from the menu
+## 5. Find an executable
+
+```bash
+uv run pathkeeper locate python
+```
+
+Use `locate` when you know a tool is installed but you're not sure where it is or if it's on your PATH.
+
+## 6. Start from the menu
 
 ```bash
 uv run pathkeeper

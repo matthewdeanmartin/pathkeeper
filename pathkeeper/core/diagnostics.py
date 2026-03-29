@@ -97,7 +97,7 @@ def canonicalize_entry(entry: str, os_name: str) -> str:
     if os_name == "windows":
         normalized = value.replace("/", "\\").rstrip("\\").strip('"')
         return normalized.casefold().strip()
-    normalized = value.rstrip("/")
+    normalized = value.rstrip("/").strip()
     if os_name == "darwin":
         return normalized.casefold()
     return normalized

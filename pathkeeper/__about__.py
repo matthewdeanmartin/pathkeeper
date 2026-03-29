@@ -13,11 +13,11 @@ __all__ = [
 ]
 
 __title__ = "pathkeeper"
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __description__ = "PATH backup, restore, and repair tool"
 __readme__ = "README.md"
 __credits__ = [{"name": "Matthew Martin", "email": "matthewdeanmartin@gmail.com"}]
 __keywords__ = ["path"]
 __license__ = "MIT"
 __requires_python__ = ">=3.12"
-__status__ = "1 - Planning"
+__status__ = "5 - Production/Stable"
