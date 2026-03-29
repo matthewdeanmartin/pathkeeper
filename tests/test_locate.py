@@ -15,6 +15,8 @@ def test_locate_executable_python_fallback(tmp_path: Path) -> None:
     if os.name == "nt":
         exe_file = bin_dir / "mytool.exe"
     exe_file.touch()
+    if os.name != "nt":
+        exe_file.chmod(exe_file.stat().st_mode | 0o111)
 
     # Mock shutil.which to say 'rg' and 'fd' are NOT available
     with (
@@ -40,6 +42,8 @@ def test_locate_executable_likely_locations(tmp_path: Path) -> None:
     likely_dir.mkdir()
     exe_file = likely_dir / "git.exe" if os.name == "nt" else likely_dir / "git"
     exe_file.touch()
+    if os.name != "nt":
+        exe_file.chmod(exe_file.stat().st_mode | 0o111)
 
     # Mock catalog
     mock_tool = MagicMock()
