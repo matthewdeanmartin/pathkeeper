@@ -5,6 +5,7 @@ import sys
 from pathkeeper.config import AppConfig
 from pathkeeper.platform.linux import LinuxPlatform
 from pathkeeper.platform.macos import MacOSPlatform
+from pathkeeper.platform.varscope import EnvVarAdapter
 from pathkeeper.platform.windows import WindowsPlatform
 
 
@@ -18,8 +19,11 @@ def normalized_os_name() -> str:
 
 def get_platform_adapter(
     config: AppConfig,
-) -> WindowsPlatform | LinuxPlatform | MacOSPlatform:
+    var_name: str = "PATH",
+) -> WindowsPlatform | LinuxPlatform | MacOSPlatform | EnvVarAdapter:
     os_name = normalized_os_name()
+    if var_name != "PATH":
+        return EnvVarAdapter(var_name, os_name)
     if os_name == "windows":
         return WindowsPlatform()
     if os_name == "darwin":

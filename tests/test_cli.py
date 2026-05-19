@@ -108,7 +108,7 @@ def test_doctor_json_output(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/missing", "/usr/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     exit_code = cli.run(["doctor", "--json"])
     output = capsys.readouterr().out
@@ -123,7 +123,7 @@ def test_backup_command_writes_to_overridden_backup_home(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     exit_code = cli.run(["backup"])
@@ -137,7 +137,7 @@ def test_backup_command_logs_info_when_requested(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     exit_code = cli.main(["--log-level", "info", "backup", "--quiet", "--force"])
@@ -151,7 +151,7 @@ def test_backup_dry_run_reports_planned_backup(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     exit_code = cli.run(["backup", "--dry-run"])
@@ -166,7 +166,7 @@ def test_backup_command_skips_duplicate_content_without_force(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     assert cli.main(["backup", "--quiet"]) == 0
@@ -185,7 +185,7 @@ def test_backup_dry_run_reports_duplicate_skip(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     assert cli.run(["backup"]) == 0
@@ -205,7 +205,7 @@ def test_dedupe_all_skips_unchanged_system_scope(
         system=["C:\\Windows\\System32"], user=[str(user_bin), str(user_bin)]
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
     exit_code = cli.run(["dedupe", "--scope", "all", "--force", "--no-remove-invalid"])
@@ -224,7 +224,7 @@ def test_dedupe_all_reports_permission_error_for_changed_system_scope(
         system=[str(system_bin), str(system_bin)], user=[]
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
     exit_code = cli.main(["dedupe", "--scope", "all", "--force"])
@@ -241,7 +241,7 @@ def test_dedupe_all_preflights_system_scope_before_backup_or_prompt(
         system=[str(system_bin), str(system_bin)], user=[]
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
     monkeypatch.setattr(
@@ -342,7 +342,7 @@ def test_interactive_menu_includes_backup_browser(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=[str(good_dir)], user=["/missing"]),
+        lambda *_a: StubAdapter(system=[str(good_dir)], user=["/missing"]),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: Path("C:\\backups"))
@@ -367,7 +367,7 @@ def test_interactive_edit_session_can_stage_and_write_changes(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
     responses = iter(["9", "", 'add "/opt/tools/bin"', "preview", "write", "y", "q"])
@@ -389,7 +389,7 @@ def test_edit_dry_run_shows_diff_without_writing(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/home/test/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     exit_code = cli.run(["edit", "--add", "/opt/tools/bin", "--dry-run"])
     output = capsys.readouterr().out
@@ -408,7 +408,7 @@ def test_interactive_cancel_returns_to_menu(
         system=["C:\\Windows\\System32"], user=[str(user_bin), str(user_bin)]
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
     responses = iter(["7", "n", "q"])
@@ -433,7 +433,7 @@ def test_interactive_dedupe_offers_user_scope_fallback_on_windows_permission_err
         user=[str(user_bin), str(user_bin)],
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
     responses = iter(["7", "", "y", "q"])
@@ -480,7 +480,7 @@ def test_repair_truncated_applies_single_backup_candidate(
         source_file=tmp_path / "2025-03-02T11-00-00_manual.json",
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path / "backups")
     monkeypatch.setattr(cli, "list_backups", lambda _path: [backup_record])
@@ -507,7 +507,7 @@ def test_split_long_dry_run_reports_plan(
         ],
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
 
     exit_code = cli.run(
@@ -545,7 +545,7 @@ def test_split_long_writes_helper_vars_and_updates_path(
         ],
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
 
@@ -593,7 +593,7 @@ def test_restore_rehydrates_helper_environment_variables(
         system=[], user=[r"C:\Temp\bin"], user_env={"OLD_PATHS_1": "x"}
     )
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "windows")
     monkeypatch.setattr(cli, "backups_home", lambda: tmp_path)
 

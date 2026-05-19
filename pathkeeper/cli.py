@@ -46,6 +46,9 @@ LOG_LEVELS = {
 }
 logger = logging.getLogger(__name__)
 
+# Module-level variable name override; set by run() before dispatching.
+_var_name: str = "PATH"
+
 
 class _SystemWritableChecker(Protocol):
     def ensure_system_writable(self) -> None: ...
@@ -131,6 +134,13 @@ examples:
         dest="no_color",
         default=False,
         help="Disable colored output.",
+    )
+    parser.add_argument(
+        "--var",
+        default="PATH",
+        dest="var_name",
+        metavar="NAME",
+        help="Environment variable to manage instead of PATH (e.g. PATHX for testing).",
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -638,7 +648,7 @@ def _print_doctor(args: argparse.Namespace) -> int:
 def _backup_now(*, tag: str, note: str, quiet: bool, force: bool = False) -> int:
     logger.info("Running backup with tag=%s", tag)
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     backup_dir = backups_home()
     destination, all_records = create_backup(
@@ -660,7 +670,7 @@ def _backup_now(*, tag: str, note: str, quiet: bool, force: bool = False) -> int
 def _backup_command(args: argparse.Namespace) -> int:
     if args.dry_run:
         config = load_config()
-        adapter = get_platform_adapter(config)
+        adapter = get_platform_adapter(config, _var_name)
         snapshot = read_snapshot(adapter)
         latest = _load_latest_backup(backups_home())
         if (
@@ -735,7 +745,7 @@ def _read_current_report(scope: Scope) -> tuple[PathSnapshot, DiagnosticReport]:
     from pathkeeper.core.diagnostics import analyze_snapshot
 
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     report = analyze_snapshot(
         system_entries=snapshot.system_path,
@@ -938,7 +948,7 @@ def _restore(args: argparse.Namespace) -> int:
         "Restoring PATH from backup %s with scope=%s", args.identifier, args.scope
     )
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     current = read_snapshot(adapter)
     target = resolve_backup(args.identifier, backups_home())
     scope = _scope(args.scope)
@@ -976,7 +986,7 @@ def _dedupe(args: argparse.Namespace) -> int:
         args.remove_invalid,
     )
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     scope = _scope(args.scope)
     os_name = normalized_os_name()
@@ -1118,7 +1128,7 @@ def _populate(args: argparse.Namespace) -> int:
         "Populating PATH for scope=%s category=%s", args.scope, args.category or "all"
     )
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     if args.list_catalog:
         print((backups_home().parent / "known_tools.toml").read_text(encoding="utf-8"))
         return 0
@@ -1239,7 +1249,7 @@ def _repair_truncated(args: argparse.Namespace) -> int:
 
     logger.info("Repairing truncated PATH entries for scope=%s", args.scope)
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     os_name = normalized_os_name()
     scope = _scope(args.scope)
@@ -1330,7 +1340,7 @@ def _split_long(args: argparse.Namespace) -> int:
         args.chunk_length,
     )
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     scope = _scope(args.scope)
     os_name = normalized_os_name()
@@ -1382,7 +1392,7 @@ def _interactive_dedupe(args: argparse.Namespace) -> int:
         if normalized_os_name() != "windows" or _scope(args.scope) is not Scope.ALL:
             raise
         config = load_config()
-        adapter = get_platform_adapter(config)
+        adapter = get_platform_adapter(config, _var_name)
         snapshot = read_snapshot(adapter)
         os_name = normalized_os_name()
         user_changes = _scope_has_dedupe_changes(
@@ -1451,7 +1461,7 @@ def _interactive_edit(args: argparse.Namespace) -> int:
 
     logger.info("Starting interactive edit session")
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     os_name = normalized_os_name()
     scope = _prompt_scope("Edit which PATH scope?", default=_scope(args.scope))
@@ -1540,7 +1550,7 @@ def _edit(args: argparse.Namespace) -> int:
 
     logger.info("Editing PATH for scope=%s", args.scope)
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     scope = _scope(args.scope)
     os_name = normalized_os_name()
@@ -1697,7 +1707,7 @@ def _shadow(args: argparse.Namespace) -> int:
 
     scope = _scope(args.scope)
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     os_name = normalized_os_name()
     groups = find_shadows(
@@ -1740,7 +1750,7 @@ def _diff_current(args: argparse.Namespace) -> int:
 
     scope = _scope(args.scope)
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     os_name = normalized_os_name()
     identifier = getattr(args, "identifier", None)
@@ -1772,7 +1782,7 @@ def _runtime_entries(_args: argparse.Namespace) -> int:
     from pathkeeper.core.runtime_diff import detect_runtime_entries
 
     config = load_config()
-    adapter = get_platform_adapter(config)
+    adapter = get_platform_adapter(config, _var_name)
     snapshot = read_snapshot(adapter)
     os_name = normalized_os_name()
     entries = detect_runtime_entries(snapshot, os_name)
@@ -2207,6 +2217,7 @@ def _interactive() -> int:
 
 
 def run(argv: Sequence[str] | None = None) -> int:
+    global _var_name
     parser = build_parser()
     try:
         import argcomplete
@@ -2215,6 +2226,7 @@ def run(argv: Sequence[str] | None = None) -> int:
     except ImportError:
         pass
     args = parser.parse_args(list(argv) if argv is not None else None)
+    _var_name = getattr(args, "var_name", "PATH") or "PATH"
     _configure_logging(args.log_level)
     _init_theme(args)
     if args.command == "gui" or getattr(args, "gui", False):

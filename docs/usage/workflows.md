@@ -66,3 +66,31 @@ Use `edit` when you know exactly what you want to change:
 uv run pathkeeper edit --add "/opt/mytool/bin" --force
 uv run pathkeeper edit --remove "/broken/path" --force
 ```
+
+## Testing commands safely with `--var`
+
+Use `--var NAME` to run the full command surface against a scratch variable instead of your real `PATH`. This lets you verify behavior, write tests, or experiment without any risk of modifying the live environment.
+
+```bash
+# Create a test variable with known entries
+export PATHX="/usr/local/bin:/usr/bin:/opt/mytool/bin:/usr/bin"  # note the duplicate
+
+# Inspect and diagnose
+uv run pathkeeper --var PATHX inspect
+uv run pathkeeper --var PATHX doctor
+
+# Back it up
+uv run pathkeeper --var PATHX backup --note "test baseline" --force
+
+# Dedupe the duplicate without touching PATH
+uv run pathkeeper --var PATHX dedupe --dry-run
+uv run pathkeeper --var PATHX dedupe --force
+
+# Edit an entry
+uv run pathkeeper --var PATHX edit --add "/opt/newtool/bin" --force
+
+# Compare backup to current state
+uv run pathkeeper --var PATHX diff-current 1
+```
+
+The `--var` flag is supported by all read and write subcommands. On Windows, only the default `PATH` value accesses the registry; any other variable name uses the current process environment.

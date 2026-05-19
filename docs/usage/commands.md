@@ -16,11 +16,46 @@ When the interactive menu starts, it shows the backup directory and a one-line P
 
 If you cancel an interactive command at a confirmation prompt, pathkeeper returns to the menu instead of exiting the application.
 
-Use the global logging switch to control log verbosity:
+### Global flags
+
+These flags apply to every subcommand and must appear before the subcommand name:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--log-level {info,warn,warning,error}` | `warning` | Set logging verbosity. |
+| `--no-color` | off | Disable colored output. |
+| `--var NAME` | `PATH` | Operate on a named environment variable instead of `PATH`. |
 
 ```bash
+# Verbose logging
 uv run pathkeeper --log-level info doctor
+
+# Operate on PATHX instead of PATH (useful for testing)
+uv run pathkeeper --var PATHX inspect
 ```
+
+### `--var NAME` — operating on a different variable
+
+The `--var` flag redirects every read and write operation to the named environment variable instead of `PATH`. All subcommands that read or write PATH entries respect it: `inspect`, `doctor`, `backup`, `restore`, `dedupe`, `edit`, `populate`, `repair-truncated`, `diff-current`, `shadow`, `runtime-entries`, and `split-long`.
+
+The primary use case is safe testing: set `PATHX` to a controlled value, then run the full command surface against it without ever touching your real `PATH`.
+
+```bash
+# Set up a scratch variable
+export PATHX="/usr/local/bin:/usr/bin:/opt/mytool/bin"
+
+# Inspect it
+uv run pathkeeper --var PATHX inspect
+
+# Back it up
+uv run pathkeeper --var PATHX backup --note "PATHX baseline"
+
+# Dedupe it (dry run first)
+uv run pathkeeper --var PATHX dedupe --dry-run
+uv run pathkeeper --var PATHX dedupe --force
+```
+
+On Windows, `--var PATH` (the default) reads and writes the registry. Any other value reads and writes the current process environment, which is safe for testing without registry access.
 
 ## `pathkeeper inspect`
 

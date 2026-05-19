@@ -157,7 +157,7 @@ def test_doctor_explain_shows_explanation_for_missing_entry(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/nonexistent/missing"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     exit_code = cli.run(["doctor", "--explain"])
     output = capsys.readouterr().out
@@ -174,7 +174,7 @@ def test_doctor_explain_shows_explanation_for_duplicate(
 ) -> None:
     adapter = StubAdapter(system=["/usr/bin"], user=["/usr/bin"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     exit_code = cli.run(["doctor", "--explain"])
     output = capsys.readouterr().out
@@ -189,7 +189,7 @@ def test_doctor_explain_not_shown_without_flag(
     """Without --explain, no per-entry explanation text should appear."""
     adapter = StubAdapter(system=["/usr/bin"], user=["/nonexistent/missing"])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     exit_code = cli.run(["doctor"])
     output = capsys.readouterr().out
@@ -212,7 +212,7 @@ def test_doctor_explain_no_explanation_for_valid_entries(
     valid.mkdir()
     adapter = StubAdapter(system=[str(valid)], user=[])
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
-    monkeypatch.setattr(cli, "get_platform_adapter", lambda _config: adapter)
+    monkeypatch.setattr(cli, "get_platform_adapter", lambda *_a: adapter)
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     exit_code = cli.run(["doctor", "--explain"])
     output = capsys.readouterr().out

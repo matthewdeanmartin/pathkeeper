@@ -198,7 +198,7 @@ def _stub_adapter(
     from pathkeeper.config import AppConfig
 
     monkeypatch.setattr(
-        cli, "get_platform_adapter", lambda _: _StubAdapter(system, user)
+        cli, "get_platform_adapter", lambda *_a: _StubAdapter(system, user)
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "load_config", lambda: AppConfig())
