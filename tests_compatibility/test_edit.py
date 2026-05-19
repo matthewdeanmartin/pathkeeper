@@ -1,4 +1,5 @@
 """T8 — edit subcommand (non-interactive flag-driven and interactive via stdin)."""
+
 from __future__ import annotations
 
 

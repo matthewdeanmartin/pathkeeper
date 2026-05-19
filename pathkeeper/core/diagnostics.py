@@ -95,7 +95,7 @@ def _looks_like_missing_separator(entry: str, os_name: str) -> bool:
 def canonicalize_entry(entry: str, os_name: str) -> str:
     value = expand_entry(entry, os_name)
     if os_name == "windows":
-        normalized = value.replace("/", "\\").rstrip("\\").strip('"')
+        normalized = value.replace("/", "\\").rstrip("\\").strip().strip('"')
         return normalized.casefold().strip()
     normalized = value.rstrip("/").strip()
     if os_name == "darwin":

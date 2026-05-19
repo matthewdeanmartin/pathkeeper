@@ -1,4 +1,5 @@
 """T7 — dedupe subcommand."""
+
 from __future__ import annotations
 
 

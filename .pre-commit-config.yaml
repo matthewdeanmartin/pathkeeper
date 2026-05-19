@@ -5,7 +5,7 @@ repos:
   - repo: local
     hooks:
       - id: check
-        name: make check
+        name: make format && mdformat .
         language: system
         entry: uv run make check
         pass_filenames: false

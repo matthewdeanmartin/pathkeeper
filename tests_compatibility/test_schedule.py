@@ -1,4 +1,5 @@
 """schedule subcommand tests (status and dry-run only)."""
+
 from __future__ import annotations
 
 

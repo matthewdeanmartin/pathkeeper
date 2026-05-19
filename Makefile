@@ -31,10 +31,10 @@ sync:
 format: format-python format-yaml format-markdown format-check
 
 format-python:
-	@$(UV) run isort $(PYTHON_TARGETS)
-	@$(UV) run black $(PYTHON_TARGETS)
+	@$(UV) run isort .
+	@$(UV) run black .
 	@$(UV) run ruff check --fix --quiet $(PYTHON_TARGETS)
-	@$(UV) run black $(PYTHON_TARGETS)
+	@$(UV) run black .
 	@$(UV) run isort --check-only $(PYTHON_TARGETS)
 	@$(UV) run black --check $(PYTHON_TARGETS)
 

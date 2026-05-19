@@ -3,6 +3,7 @@
 Used with --var <NAME> to let callers manage PATHX (or any other variable) with
 all the same pathkeeper commands without touching the real PATH.
 """
+
 from __future__ import annotations
 
 import os

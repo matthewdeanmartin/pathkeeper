@@ -1,4 +1,5 @@
 """populate subcommand tests."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,7 +8,9 @@ import pytest
 def _is_populate_crash(result) -> bool:
     """Detect pre-existing populate bugs (e.g. subprocess timeout for version probes)."""
     combined = result.stdout + result.stderr
-    return "TimeoutExpired" in combined or "subprocess" in combined and "Error" in combined
+    return (
+        "TimeoutExpired" in combined or "subprocess" in combined and "Error" in combined
+    )
 
 
 def test_populate_dry_run(runner, pathx: str) -> None:
@@ -17,7 +20,9 @@ def test_populate_dry_run(runner, pathx: str) -> None:
         timeout=60,
     )
     if _is_populate_crash(result):
-        pytest.skip("populate crashed due to subprocess version probe (pre-existing bug)")
+        pytest.skip(
+            "populate crashed due to subprocess version probe (pre-existing bug)"
+        )
     assert result.returncode == 0
 
 
@@ -38,7 +43,9 @@ def test_populate_all_dry_run(runner, pathx: str) -> None:
         timeout=60,
     )
     if _is_populate_crash(result):
-        pytest.skip("populate crashed due to subprocess version probe (pre-existing bug)")
+        pytest.skip(
+            "populate crashed due to subprocess version probe (pre-existing bug)"
+        )
     assert result.returncode == 0
 
 
@@ -52,5 +59,7 @@ def test_populate_interactive_skip_all(runner, pathx: str) -> None:
         timeout=60,
     )
     if _is_populate_crash(result):
-        pytest.skip("populate crashed due to subprocess version probe (pre-existing bug)")
+        pytest.skip(
+            "populate crashed due to subprocess version probe (pre-existing bug)"
+        )
     assert result.returncode == 0

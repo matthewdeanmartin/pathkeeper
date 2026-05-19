@@ -1,4 +1,5 @@
 """T2 — backup / backups subcommands."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,9 @@ import pytest
 
 
 def test_backup_dry_run(runner, pathx: str) -> None:
-    result = runner(["--var", "PATHX", "backup", "--dry-run"], env_extra={"PATHX": pathx})
+    result = runner(
+        ["--var", "PATHX", "backup", "--dry-run"], env_extra={"PATHX": pathx}
+    )
     assert result.returncode == 0
     combined = result.stdout + result.stderr
     assert combined.strip() != ""
@@ -29,7 +32,11 @@ def test_backup_with_note(runner, pathx: str) -> None:
 def _is_table_formatter_error(result) -> bool:
     """pytable_formatter is an optional dep that can crash on some terminals."""
     combined = result.stdout + result.stderr
-    return "pytable_formatter" in combined or "UnicodeEncodeError" in combined or "ModuleNotFound" in combined
+    return (
+        "pytable_formatter" in combined
+        or "UnicodeEncodeError" in combined
+        or "ModuleNotFound" in combined
+    )
 
 
 def test_backups_list(runner, pathx: str) -> None:

@@ -38,7 +38,9 @@ def _patch_wizard_env(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")
@@ -63,7 +65,9 @@ def test_wizard_triggers_when_app_home_absent(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")
@@ -94,7 +98,9 @@ def test_wizard_does_not_trigger_when_app_home_exists(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")
@@ -120,7 +126,9 @@ def test_wizard_shows_path_health_summary(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")
@@ -146,7 +154,9 @@ def test_wizard_creates_backup_when_user_accepts(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: backup_dir)
@@ -174,7 +184,9 @@ def test_wizard_skips_backup_when_user_declines(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: backup_dir)
@@ -199,7 +211,9 @@ def test_wizard_setup_complete_message(
     monkeypatch.setattr(
         cli,
         "get_platform_adapter",
-        lambda _config: StubAdapter(system=["/usr/bin"], user=["/home/user/bin"]),
+        lambda _config, _var_name: StubAdapter(
+            system=["/usr/bin"], user=["/home/user/bin"]
+        ),
     )
     monkeypatch.setattr(cli, "normalized_os_name", lambda: "linux")
     monkeypatch.setattr(cli, "backups_home", lambda: app_dir / "backups")

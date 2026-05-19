@@ -1,4 +1,5 @@
 """T4 — diff and diff-current subcommands."""
+
 from __future__ import annotations
 
 import pytest
@@ -6,7 +7,11 @@ import pytest
 
 def _is_table_formatter_error(result) -> bool:
     combined = result.stdout + result.stderr
-    return "pytable_formatter" in combined or "UnicodeEncodeError" in combined or "ModuleNotFound" in combined
+    return (
+        "pytable_formatter" in combined
+        or "UnicodeEncodeError" in combined
+        or "ModuleNotFound" in combined
+    )
 
 
 def _ensure_two_backups(runner, pathx: str, pathx2: str) -> None:

@@ -16,6 +16,7 @@ The CLI under test is driven by the PK environment variable or the
     # Java jar
     PK="java -jar pathkeeper.jar" uv run pytest tests_compatibility/
 """
+
 from __future__ import annotations
 
 import os
@@ -28,23 +29,24 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # pytest option
 # ---------------------------------------------------------------------------
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--pk",
         default=None,
         help="CLI command to test, e.g. './bin/pathkeeper' or 'java -jar pk.jar'. "
-             "Overrides the PK environment variable.",
+        "Overrides the PK environment variable.",
     )
 
 
 # ---------------------------------------------------------------------------
 # Platform helpers (shared by fixtures and tests)
 # ---------------------------------------------------------------------------
+
 
 def _is_windows() -> bool:
     return platform.system() == "Windows" or os.environ.get("OS") == "Windows_NT"
@@ -69,6 +71,7 @@ def real_dirs() -> tuple[str, str, str, str]:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def pk_cmd(request: pytest.FixtureRequest) -> list[str]:
@@ -118,6 +121,7 @@ def runner(pk_cmd: list[str], pk_home: Path):
     Returns a callable run(args, *, env_extra, input_text) -> CompletedProcess.
     Merges pk_home into env automatically.
     """
+
     def _run(
         args: list[str],
         *,
@@ -127,9 +131,9 @@ def runner(pk_cmd: list[str], pk_home: Path):
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PATHKEEPER_HOME"] = str(pk_home)
-        env["NO_COLOR"] = "1"         # suppress ANSI in output
+        env["NO_COLOR"] = "1"  # suppress ANSI in output
         env["TERM"] = "dumb"
-        env["PYTHONUTF8"] = "1"       # avoid cp1252 crashes on Windows
+        env["PYTHONUTF8"] = "1"  # avoid cp1252 crashes on Windows
         if env_extra:
             env.update(env_extra)
         full_cmd = pk_cmd + args
@@ -143,4 +147,5 @@ def runner(pk_cmd: list[str], pk_home: Path):
             input=input_text,
             timeout=timeout,
         )
+
     return _run

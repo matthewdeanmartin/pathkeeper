@@ -1,4 +1,5 @@
 """T5 — shadow, runtime-entries, and selfcheck subcommands."""
+
 from __future__ import annotations
 
 import json

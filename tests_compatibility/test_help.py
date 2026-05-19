@@ -1,8 +1,8 @@
 """T1 — version and help for all subcommands."""
+
 from __future__ import annotations
 
 import pytest
-
 
 SUBCOMMANDS = [
     "inspect",
@@ -56,11 +56,10 @@ def test_subcommand_help(runner, sub: str) -> None:
     assert len(combined) > 10
 
 
-@pytest.mark.parametrize("sub,subsub", [
-    (sub, ss)
-    for sub, subs in SUBCOMMANDS_WITH_SUBSUB.items()
-    for ss in subs
-])
+@pytest.mark.parametrize(
+    "sub,subsub",
+    [(sub, ss) for sub, subs in SUBCOMMANDS_WITH_SUBSUB.items() for ss in subs],
+)
 def test_subsubcommand_help(runner, sub: str, subsub: str) -> None:
     result = runner([sub, subsub, "--help"])
     assert result.returncode == 0, (

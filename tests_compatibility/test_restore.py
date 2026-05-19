@@ -1,4 +1,5 @@
 """T6 — restore (dry-run only; never writes to real PATH)."""
+
 from __future__ import annotations
 
 import re

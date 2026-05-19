@@ -1,7 +1,9 @@
 """shell-startup subcommand tests (dry-run only)."""
+
 from __future__ import annotations
 
 import platform
+
 import pytest
 
 
@@ -33,8 +35,10 @@ def test_shell_startup_remove_dry_run(runner, tmp_path) -> None:
     result = runner(
         [
             "shell-startup",
-            "--shell", "bash",
-            "--rc-file", str(rc),
+            "--shell",
+            "bash",
+            "--rc-file",
+            str(rc),
             "--dry-run",
             "--remove",
         ]

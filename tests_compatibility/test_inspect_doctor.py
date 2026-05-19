@@ -1,4 +1,5 @@
 """T3 — inspect and doctor subcommands."""
+
 from __future__ import annotations
 
 import json
@@ -45,7 +46,9 @@ def test_doctor_json(runner, pathx: str) -> None:
 
 
 def test_doctor_explain(runner, pathx: str) -> None:
-    result = runner(["--var", "PATHX", "doctor", "--explain"], env_extra={"PATHX": pathx})
+    result = runner(
+        ["--var", "PATHX", "doctor", "--explain"], env_extra={"PATHX": pathx}
+    )
     assert result.returncode == 0
 
 
