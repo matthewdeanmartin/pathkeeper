@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -13,6 +15,17 @@ from pathkeeper.config import AppConfig
 from pathkeeper.core.schedule import ScheduleStatus
 from pathkeeper.errors import PermissionDeniedError
 from pathkeeper.models import BackupRecord
+
+
+@pytest.fixture(autouse=True)
+def mock_app_home(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
+    """Ensure app_home exists so we don't trigger the first-run wizard."""
+    app_dir = tmp_path / ".pathkeeper"
+    app_dir.mkdir()
+    import pathkeeper.config as config_mod
+
+    monkeypatch.setattr(config_mod, "app_home", lambda: app_dir)
+    return app_dir
 
 
 class StubAdapter:
@@ -421,6 +434,9 @@ def test_interactive_cancel_returns_to_menu(
     assert output.count("Dedupe") >= 2
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows-specific permission fallback test"
+)
 def test_interactive_dedupe_offers_user_scope_fallback_on_windows_permission_error(
     monkeypatch: MonkeyPatch, tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
