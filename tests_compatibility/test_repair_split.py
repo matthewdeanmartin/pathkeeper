@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import platform
 
+import pytest
+
 
 def test_repair_truncated_dry_run(runner, pathx: str) -> None:
     result = runner(
@@ -13,6 +15,7 @@ def test_repair_truncated_dry_run(runner, pathx: str) -> None:
     assert result.returncode == 0
 
 
+@pytest.mark.slow
 def test_repair_truncated_live_path_dry_run(runner) -> None:
     result = runner(["repair-truncated", "--dry-run"])
     assert result.returncode == 0
