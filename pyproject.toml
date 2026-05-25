@@ -11,7 +11,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
 ]
@@ -49,6 +48,9 @@ pathkeeper-gui = "pathkeeper.gui.app:launch_gui"
 
 [dependency-groups]
 dev = [
+    "dont-be-lazy>=0.1.2",
+    "pydoc-fork>=3.0.0",
+
     "bandit>=1.9.4",
     "basedpyright>=1.38.3",
     "black>=26.3.1",
@@ -92,7 +94,7 @@ py_version = 313
 skip_gitignore = true
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 packages = ["pathkeeper", "tests"]
 
@@ -138,7 +140,7 @@ skips = ["B101", "B404", "B603", "B604", "B606", "B607"]
 
 [tool.basedpyright]
 include = ["pathkeeper", "tests"]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"

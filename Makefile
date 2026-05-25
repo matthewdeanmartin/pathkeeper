@@ -134,3 +134,18 @@ prepublish: check dev-status publish-check
 
 run:
 	@$(UV) run pathkeeper
+
+# ── Dogfooding targets (independent, not wired into check) ───────────────────
+
+.PHONY: prerelease-check
+prerelease-check: version-check dev-status
+	@echo "Pre-release checks passed."
+
+.PHONY: dont-be-lazy
+dont-be-lazy:
+	@$(UV) dont_be_lazy --root . --no-color summary
+	@$(UV) dont_be_lazy --root . --no-color scan pathkeeper --no-config-suppressions || true
+
+.PHONY: pydoc-docs
+pydoc-docs:
+	@$(UV) pydoc_fork pathkeeper -o ./pydoc/

@@ -1,0 +1,39 @@
+
+================================== FAILURES ===================================
+_______________________________ test_locate_all _______________________________
+tests_compatibility\test_locate.py:55: in test_locate_all
+    result = runner(["locate", exe, "--all"], timeout=300)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests_compatibility\conftest.py:140: in _run
+    return subprocess.run(
+C:\hostedtoolcache\windows\Python\3.13.13\x64\Lib\subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\hostedtoolcache\windows\Python\3.13.13\x64\Lib\subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\hostedtoolcache\windows\Python\3.13.13\x64\Lib\subprocess.py:1665: in _communicate
+    raise TimeoutExpired(self.args, orig_timeout)
+E   subprocess.TimeoutExpired: Command '['D:\\a\\pathkeeper\\pathkeeper\\.tox\\py\\Scripts\\python.exe', '-m', 'pathkeeper', 'locate', 'cmd', '--all']' timed out after 300 seconds
+___________________ test_repair_truncated_live_path_dry_run ___________________
+tests_compatibility\test_repair_split.py:17: in test_repair_truncated_live_path_dry_run
+    result = runner(["repair-truncated", "--dry-run"])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests_compatibility\conftest.py:140: in _run
+    return subprocess.run(
+C:\hostedtoolcache\windows\Python\3.13.13\x64\Lib\subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\hostedtoolcache\windows\Python\3.13.13\x64\Lib\subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\hostedtoolcache\windows\Python\3.13.13\x64\Lib\subprocess.py:1665: in _communicate
+    raise TimeoutExpired(self.args, orig_timeout)
+E   subprocess.TimeoutExpired: Command '['D:\\a\\pathkeeper\\pathkeeper\\.tox\\py\\Scripts\\python.exe', '-m', 'pathkeeper', 'repair-truncated', '--dry-run']' timed out after 30 seconds
+=========================== short test summary info ===========================
+FAILED tests_compatibility\test_locate.py::test_locate_all - subprocess.Timeo...
+FAILED tests_compatibility\test_repair_split.py::test_repair_truncated_live_path_dry_run
+============= 2 failed, 77 passed, 3 skipped in 434.80s (0:07:14) =============
+py: exit 1 (435.52 seconds) D:\a\pathkeeper\pathkeeper> pytest tests_compatibility pid=3152
+.pkg: _exit> python C:\Users\runneradmin\AppData\Roaming\uv\tools\tox\Lib\site-packages\pyproject_api\_backend.py True hatchling.build
+  py: FAIL code 1 (452.63=setup[2.72]+cmd[14.39,435.52] seconds)
