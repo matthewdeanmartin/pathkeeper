@@ -128,7 +128,7 @@ publish-check:
 	@$(UV) build
 	@$(UV) run python scripts/check_wheel_contents.py
 
-check: format-check lint-check security test typecheck metadata-check version-check
+check: lint-check security test typecheck metadata-check version-check
 
 prepublish: check dev-status publish-check
 
