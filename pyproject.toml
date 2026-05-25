@@ -147,6 +147,7 @@ venv = ".venv"
 
 [tool.uv]
 default-groups = ["dev"]
+universal = true
 
 [tool.tox]
 legacy_tox_ini = """
