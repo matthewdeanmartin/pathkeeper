@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import platform
 
-import pytest
 
 
 def test_shell_startup_dry_run_bash(runner, tmp_path) -> None:

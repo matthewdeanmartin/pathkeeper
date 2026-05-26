@@ -18,10 +18,7 @@ def _windows() -> bool:
 
 def test_locate_known(runner) -> None:
     """Locate an executable that is on PATH — fast, no disk scan triggered."""
-    if _windows():
-        exe = "cmd"
-    else:
-        exe = "sh"
+    exe = "cmd" if _windows() else "sh"
     result = runner(["locate", exe])
     assert result.returncode == 0
     combined = result.stdout + result.stderr
