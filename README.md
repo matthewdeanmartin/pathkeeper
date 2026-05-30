@@ -196,3 +196,11 @@ ______________________________________________________________________
 - setx truncation sentinel (PATH exactly 1023 or 1024 chars — classic damage sign)
 
 ______________________________________________________________________
+
+## Project Links
+
+- [GitHub](https://github.com/matthewdeanmartin/pathkeeper)
+- [PyPI](https://pypi.org/project/pathkeeper/)
+- [Documentation](https://pathkeeper.readthedocs.io/en/latest/)
+- [Bug Tracker](https://github.com/matthewdeanmartin/pathkeeper/issues)
+- [Change Log](https://github.com/matthewdeanmartin/pathkeeper/blob/main/CHANGELOG.md)
