@@ -73,7 +73,8 @@ dev = [
     "pre-commit>=4.5.1",
     "actionlint-py>=1.7.11.24",
     "pytest-xdist>=3.5.0",
-    "pytest-cov>=4.1.0"
+    "pytest-cov>=4.1.0",
+    "keepachangelog-manager-fork>=6.1.1,<7"
 ]
 
 [tool.pytest.ini_options]
@@ -92,6 +93,24 @@ profile = "black"
 line_length = 88
 py_version = 313
 skip_gitignore = true
+
+# changelogmanager (keepachangelog-manager-fork) drives the release workflows.
+# See .github/workflows/create_draft_release.yml and release.yml.
+[tool.changelogmanager.versioning]
+scheme = "semver"
+
+[tool.changelogmanager.validation]
+enforce_preamble = true
+format = "auto"
+
+[tool.changelogmanager.defaults]
+error_format = "github"
+commit_schema = "keepachangelog"
+schema_version = "current"
+
+[[tool.changelogmanager.components]]
+name = "default"
+changelog = "CHANGELOG.md"
 
 [tool.mypy]
 python_version = "3.14"
