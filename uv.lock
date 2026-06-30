@@ -907,21 +907,26 @@ wheels = [
 
 [[package]]
 name = "keepachangelog-manager-fork"
-version = "6.3.0"
+version = "6.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "google-re2" },
     { name = "inquirer" },
     { name = "jsonschema" },
     { name = "keyring" },
-    { name = "orjson" },
     { name = "packaging" },
     { name = "semantic-version" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/79/7ea605283dc54e4f60a8b557f9db574a67d9240fcac5b72f7a1852d23b3b/keepachangelog_manager_fork-6.3.0.tar.gz", hash = "sha256:ecd27ddecdde3635c08674f04a1d4f38de168980e24bb4e4dfdc2813192492d1", size = 1083920, upload-time = "2026-06-15T21:03:19.738Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/3a/3e017a06b0a2533294dc036073ee2a13bf1fc41ceeee229fd18f5fd8e929/keepachangelog_manager_fork-6.5.0.tar.gz", hash = "sha256:efeb2063be46b1eb1bfab521c2ae7be91f3d67985988f9a28160a91149b37a0a", size = 1331186, upload-time = "2026-06-29T22:34:40.475Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/70/c1c5c5acc208a249bccd4cb8d69d250c6b9023cef748bfb75069cc8b703f/keepachangelog_manager_fork-6.3.0-py3-none-any.whl", hash = "sha256:9cfb91d32b3961a88f697bab8e5b509a0a8ea993fc669c61a27308532fe0e943", size = 155958, upload-time = "2026-06-15T21:03:17.984Z" },
+    { url = "https://files.pythonhosted.org/packages/64/3c/3d1e168c7e7e34a18f4535b09874c38948c1fb15ff45ec710189c0f669b8/keepachangelog_manager_fork-6.5.0-py3-none-any.whl", hash = "sha256:e01ef70c74d84fedd3f803b70c672eb1018e9dfbcfbcfb6b92903606ae015cf9", size = 185297, upload-time = "2026-06-29T22:34:39.091Z" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "google-re2" },
+    { name = "mdformat" },
+    { name = "orjson" },
 ]
 
 [[package]]
@@ -1364,7 +1369,7 @@ dev = [
     { name = "hypothesis" },
     { name = "isort" },
     { name = "jiggle-version" },
-    { name = "keepachangelog-manager-fork" },
+    { name = "keepachangelog-manager-fork", extra = ["all"] },
     { name = "mdformat" },
     { name = "metametameta" },
     { name = "mypy" },
@@ -1402,7 +1407,7 @@ dev = [
     { name = "hypothesis", specifier = ">=6.151.9" },
     { name = "isort", specifier = ">=8.0.1" },
     { name = "jiggle-version", specifier = ">=2.1.0" },
-    { name = "keepachangelog-manager-fork", specifier = ">=6.1.1,<7" },
+    { name = "keepachangelog-manager-fork", extras = ["all"], specifier = ">=6.5.0" },
     { name = "mdformat", specifier = ">=1.0.0" },
     { name = "metametameta", specifier = ">=0.1.5" },
     { name = "mypy", specifier = ">=1.18.2" },
@@ -2446,11 +2451,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "2.6.3"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c7/24/5f1b3bdffd70275f6661c76461e25f024d5a38a46f04aaca912426a2b1d3/urllib3-2.6.3.tar.gz", hash = "sha256:1b62b6884944a57dbe321509ab94fd4d3b307075e0c2eae991ac71ee15ad38ed", size = 435556, upload-time = "2026-01-07T16:24:43.925Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4", size = 131584, upload-time = "2026-01-07T16:24:42.685Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]
