@@ -8,8 +8,8 @@ import pytest
 def _is_populate_crash(result) -> bool:
     """Detect pre-existing populate bugs (e.g. subprocess timeout for version probes)."""
     combined = result.stdout + result.stderr
-    return (
-        "TimeoutExpired" in combined or ("subprocess" in combined and "Error" in combined)
+    return "TimeoutExpired" in combined or (
+        "subprocess" in combined and "Error" in combined
     )
 
 

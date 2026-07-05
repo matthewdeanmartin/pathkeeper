@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 
-
-
 def test_shell_startup_dry_run_bash(runner, tmp_path) -> None:
     rc = tmp_path / ".bashrc"
     rc.write_text("# existing\n", encoding="utf-8")

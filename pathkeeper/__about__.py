@@ -2,6 +2,7 @@
 
 __all__ = [
     "__credits__",
+    "__dependencies__",
     "__description__",
     "__keywords__",
     "__license__",
@@ -21,3 +22,9 @@ __keywords__ = ["path"]
 __license__ = "MIT"
 __requires_python__ = ">=3.12"
 __status__ = "5 - Production/Stable"
+__dependencies__ = [
+    "pytable-formatter>=0.1.1",
+    "argcomplete>=3.3.0",
+    "rich-argparse>=1.5.0",
+    "totalhelp>=0.1.0",
+]
