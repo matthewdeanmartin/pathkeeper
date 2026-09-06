@@ -11,6 +11,7 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
 ]
@@ -74,7 +75,11 @@ dev = [
     "actionlint-py>=1.7.11.24",
     "pytest-xdist>=3.5.0",
     "pytest-cov>=4.1.0",
-    "keepachangelog-manager-fork[all]>=6.5.0"
+    # The [all] extra pulls in google-re2, which has no cp315 wheel and fails to
+    # build on Windows (missing absl headers). The base package is pure Python and
+    # provides the `kaclm validate` functionality this repo actually uses.
+    "keepachangelog-manager-fork[all]>=6.5.0; python_version < '3.15'",
+    "keepachangelog-manager-fork>=6.5.0; python_version >= '3.15'",
 ]
 
 [tool.pytest.ini_options]

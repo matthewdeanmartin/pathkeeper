@@ -132,6 +132,32 @@ check: lint-check security test typecheck metadata-check version-check
 
 prepublish: check dev-status publish-check
 
+# -- Python 3.15 trial run ---------------------------------------------------
+# Uses a dedicated venv so the normal .venv is never clobbered.
+
+PY315 := 3.15.0rc2
+VENV315 := .venv315rc2
+PY315_EXE := $(VENV315)/Scripts/python.exe
+
+.PHONY: venv315 venv315-clean test315 check315
+
+venv315:
+	@echo "Creating Python $(PY315) trial venv at $(VENV315)"
+	@test -x $(PY315_EXE) || $(UV) venv $(VENV315) --python $(PY315)
+	$(UV) pip install -e . --group dev --python $(PY315_EXE)
+
+venv315-clean:
+	@echo "Recreating Python $(PY315) trial venv from scratch"
+	$(UV) venv $(VENV315) --python $(PY315) --clear
+	@$(MAKE) venv315
+
+test315: venv315
+	@echo "Running unit tests on Python $(PY315)"
+	$(PY315_EXE) -m pytest tests -q -p no:randomly
+
+check315: test315
+	@echo "Python $(PY315) checks passed."
+
 run:
 	@$(UV) run pathkeeper
 
