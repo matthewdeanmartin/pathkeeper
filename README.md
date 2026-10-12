@@ -204,3 +204,10 @@ ______________________________________________________________________
 - [Documentation](https://pathkeeper.readthedocs.io/en/latest/)
 - [Bug Tracker](https://github.com/matthewdeanmartin/pathkeeper/issues)
 - [Change Log](https://github.com/matthewdeanmartin/pathkeeper/blob/main/CHANGELOG.md)
+
+
+## Python 3.15 verification (2026-10-04)
+
+215 tests pass on RC3 stable, prerelease-allowed dependencies, and 3.14.7. Slow benchmarks excluded by project config. Existing Tk cleanup warnings remain on both Python versions; no production source changes.
+
+Locks refreshed with `uv lock --upgrade`. Every dependency install used published wheels only in fresh environments; no source builds. Full developer groups still have wheel blockers, so unit-suite success does not certify the full developer setup. Evidence and limits: `C:/github/python315_batch6_2026-10-04.md`. Human operators review and file upstream bugs.
