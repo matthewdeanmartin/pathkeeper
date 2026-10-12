@@ -680,7 +680,9 @@ def test_interactive_schedule_status_offers_install_when_disabled(
     monkeypatch.setattr(
         _schedule_mod,
         "install_schedule",
-        lambda _os_name, _interval, *, trigger="startup": "Installed Windows scheduled task.",
+        lambda _os_name, _interval, *, trigger="startup": (
+            "Installed Windows scheduled task."
+        ),
     )
     responses = iter(["12", "", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))

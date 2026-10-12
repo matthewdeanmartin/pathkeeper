@@ -1332,7 +1332,7 @@ class EditPanel(_BasePanel):
             return
         self._session.replace(idx, new_path)
         self._refresh_tree()
-        self._status.set(f"Replaced entry {idx+1}")
+        self._status.set(f"Replaced entry {idx + 1}")
 
     def _undo(self) -> None:
         if self._session is None:

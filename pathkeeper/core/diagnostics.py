@@ -92,12 +92,25 @@ def _looks_like_missing_separator(entry: str, os_name: str) -> bool:
     return ":" in entry
 
 
+def _strip_wrapping(value: str, separator: str) -> str:
+    """Strip whitespace, quotes and trailing separators until nothing changes.
+
+    One pass is not enough: removing a trailing separator can expose a quote
+    (``0"/`` -> ``0"``), which would only be removed on the next call.
+    """
+    previous = None
+    while value != previous:
+        previous = value
+        value = value.strip().strip('"').rstrip(separator)
+    return value
+
+
 def canonicalize_entry(entry: str, os_name: str) -> str:
     value = expand_entry(entry, os_name)
     if os_name == "windows":
-        normalized = value.replace("/", "\\").rstrip("\\").strip().strip('"')
+        normalized = _strip_wrapping(value.replace("/", "\\"), "\\")
         return normalized.casefold().strip()
-    normalized = value.rstrip("/").strip()
+    normalized = _strip_wrapping(value, "/")
     if os_name == "darwin":
         return normalized.casefold()
     return normalized

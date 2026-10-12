@@ -152,7 +152,7 @@ select = [
     "UP",
     "W",
 ]
-ignore = [
+ignore = ["RUF100", 
     "E501",
 ]
 
