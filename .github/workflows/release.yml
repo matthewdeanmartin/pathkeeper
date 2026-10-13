@@ -86,7 +86,7 @@ jobs:
         env:
           EXPECTED: ${{ needs.bump.outputs.version }}
         run: |
-          WHEEL=$(ls dist/*.whl 2>/dev/null | head -1)
+          WHEEL=$(find dist -maxdepth 1 -name '*.whl' -print -quit 2>/dev/null)
           if [ -z "$WHEEL" ]; then
             echo "::error::No wheel found in dist/"
             exit 1
