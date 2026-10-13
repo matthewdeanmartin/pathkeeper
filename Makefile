@@ -175,3 +175,6 @@ dont-be-lazy:
 .PHONY: pydoc-docs
 pydoc-docs:
 	@$(UV) pydoc_fork pathkeeper -o ./pydoc/
+
+# `docs` is also a directory in this repo; without .PHONY make can call the target up to date and skip it.
+.PHONY: docs
